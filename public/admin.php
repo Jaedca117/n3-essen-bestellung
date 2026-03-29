@@ -45,6 +45,7 @@ function validate_order_payload(array $payload, bool $paypalEnabled): array
     if (mb_strlen((string) $payload['nickname']) < 2 || mb_strlen((string) $payload['nickname']) > 40) $errors[] = 'Name muss 2-40 Zeichen haben.';
     if (mb_strlen((string) $payload['dish_no']) > 20) $errors[] = 'Essensnummer ist zu lang.';
     if (mb_strlen((string) $payload['dish_name']) < 2 || mb_strlen((string) $payload['dish_name']) > 120) $errors[] = 'Gericht muss 2-120 Zeichen haben.';
+    if (mb_strlen((string) $payload['dish_size']) > 40) $errors[] = 'Größe darf höchstens 40 Zeichen haben.';
     if ((float) $payload['price'] <= 0 || (float) $payload['price'] > 999) $errors[] = 'Preis muss zwischen 0,01 und 999 liegen.';
     if (!in_array((string) $payload['payment_method'], ['bar', 'paypal'], true)) $errors[] = 'Ungültige Zahlungsart.';
     if (!$paypalEnabled && $payload['payment_method'] === 'paypal') $errors[] = 'PayPal ist heute nicht verfügbar.';
@@ -142,6 +143,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             'nickname' => trim((string) ($_POST['nickname'] ?? '')),
             'dish_no' => trim((string) ($_POST['dish_no'] ?? '')),
             'dish_name' => trim((string) ($_POST['dish_name'] ?? '')),
+            'dish_size' => trim((string) ($_POST['dish_size'] ?? '')),
             'price' => (float) ($_POST['price'] ?? 0),
             'payment_method' => (string) ($_POST['payment_method'] ?? 'bar'),
             'note' => trim((string) ($_POST['note'] ?? '')),
@@ -247,6 +249,7 @@ $orders = $repo->orders();
         <input name="nickname" maxlength="40" required value="<?= e((string) $o['nickname']) ?>" placeholder="Name">
         <input name="dish_no" maxlength="20" value="<?= e((string) $o['dish_no']) ?>" placeholder="Nr.">
         <input name="dish_name" maxlength="120" required value="<?= e((string) $o['dish_name']) ?>" placeholder="Gericht">
+        <input name="dish_size" maxlength="40" value="<?= e((string) ($o['dish_size'] ?? '')) ?>" placeholder="Größe (z. B. 30cm)">
         <input type="number" step="0.01" min="0.01" max="999" name="price" required value="<?= e((string) $o['price']) ?>" placeholder="Preis">
         <select name="payment_method">
             <option value="bar" <?= ($o['payment_method'] === 'bar') ? 'selected' : '' ?>>Bar</option>

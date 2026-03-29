@@ -33,8 +33,9 @@ Warum passend:
 
 1. Dateien hochladen.
 2. `config.sample.php` zu `config.php` kopieren und DB-Daten eintragen.
-3. `sql/schema.sql` importieren.
-4. Document Root auf `public/` setzen.
+3. Document Root auf `public/` setzen.
+
+> Die Anwendung initialisiert das DB-Schema beim ersten Aufruf automatisch (inkl. Standarddaten).
 
 ## Ubuntu 22.04 Anleitung (Apache)
 
@@ -87,12 +88,7 @@ FLUSH PRIVILEGES;
 EXIT;
 ```
 
-Schema importieren:
-
-```bash
-cd /var/www/essenbestellung
-mysql -u essenuser -p essenbestellung < sql/schema.sql
-```
+Schema-Import ist optional: Beim ersten Aufruf legt die Anwendung Tabellen und Basisdaten selbst an.
 
 ### 4) Projekt bereitstellen
 

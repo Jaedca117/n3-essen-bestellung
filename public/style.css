@@ -2,14 +2,14 @@
   font-family:"Inter","Segoe UI",Arial,sans-serif;
   color:#f4f6ff;
   background:
-    radial-gradient(circle at 10% 10%, rgba(255, 42, 107, 0.18), transparent 45%),
+    radial-gradient(circle at 10% 10%, rgba(255, 138, 0, 0.2), transparent 45%),
     radial-gradient(circle at 85% 0%, rgba(80, 56, 255, 0.2), transparent 40%),
     #0b1020;
   --surface:#141a2e;
   --surface-soft:#1b2440;
   --line:#2b3557;
   --text-muted:#a9b4d6;
-  --accent:#ff2a6b;
+  --accent:#ff8a00;
   --accent-2:#6f62ff;
   --ok:#37d67a;
   --warn:#ff5f6d;
@@ -31,7 +31,7 @@ body{margin:0;min-height:100vh}
 
 .hero{
   background:
-    linear-gradient(165deg, rgba(255,42,107,.2), rgba(111,98,255,.12) 48%, rgba(15,20,35,.9)),
+    linear-gradient(165deg, rgba(255,138,0,.24), rgba(111,98,255,.12) 48%, rgba(15,20,35,.9)),
     linear-gradient(160deg, rgba(28,38,66,.94), rgba(20,27,49,.94));
 }
 
@@ -54,18 +54,18 @@ input::placeholder,textarea::placeholder{color:#8996be}
 input:focus,select:focus,button:focus,textarea:focus{
   outline:none;
   border-color:var(--accent);
-  box-shadow:0 0 0 3px rgba(255,42,107,.2);
+  box-shadow:0 0 0 3px rgba(255,138,0,.25);
 }
 
 button{
-  background:linear-gradient(135deg,var(--accent),#ff4f4f);
+  background:linear-gradient(135deg,var(--accent),#ff6a00);
   color:#fff;
   border:0;
   font-weight:700;
   cursor:pointer;
   transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
 }
-button:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 10px 18px rgba(255,42,107,.24)}
+button:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 10px 18px rgba(255,138,0,.28)}
 button:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
 
 .supplier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.7rem}
@@ -98,3 +98,6 @@ th{color:#dbe4ff;background:#171f3b}
   th,td{font-size:.88rem;padding:.42rem}
   .container{padding:.65rem}
 }
+
+
+.dish-size{display:inline-block;padding:.2rem .5rem;border-radius:999px;background:rgba(255,138,0,.22);border:1px solid rgba(255,138,0,.55);color:#ffd9a1;font-size:.82rem;font-weight:600}
