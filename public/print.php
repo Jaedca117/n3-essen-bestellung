@@ -19,8 +19,8 @@ $totals = $repo->orderTotals();
 <p><strong>Lieferant:</strong> <?= e((string) ($winner['name'] ?? 'Noch kein Gewinner')) ?></p>
 <?php if ($winner): ?><p><strong>Tel.:</strong> <?= e((string) $winner['phone']) ?> · <strong>Speisekarte:</strong> <?= e((string) $winner['menu_url']) ?></p><?php endif; ?>
 <?php if (!empty($settings['daily_note'])): ?><p><strong>Tageshinweis:</strong> <?= e((string) $settings['daily_note']) ?></p><?php endif; ?>
-<table><thead><tr><th>Name</th><th>Nr</th><th>Gericht</th><th>Preis</th><th>Zahlung</th><th>Notiz</th></tr></thead><tbody>
-<?php foreach ($orders as $o): ?><tr><td><?= e((string) $o['nickname']) ?></td><td><?= e((string) $o['dish_no']) ?></td><td><?= e((string) $o['dish_name']) ?></td><td><?= number_format((float) $o['price'], 2, ',', '.') ?> €</td><td><?= e((string) strtoupper((string) $o['payment_method'])) ?></td><td><?= e((string) ($o['note'] ?: '-')) ?></td></tr><?php endforeach; ?>
+<table><thead><tr><th>Name</th><th>Nr</th><th>Gericht</th><th>Größe</th><th>Preis</th><th>Zahlung</th><th>Notiz</th></tr></thead><tbody>
+<?php foreach ($orders as $o): ?><tr><td><?= e((string) $o['nickname']) ?></td><td><?= e((string) $o['dish_no']) ?></td><td><?= e((string) $o['dish_name']) ?></td><td><?= e((string) ($o['dish_size'] ?: '-')) ?></td><td><?= number_format((float) $o['price'], 2, ',', '.') ?> €</td><td><?= e((string) strtoupper((string) $o['payment_method'])) ?></td><td><?= e((string) ($o['note'] ?: '-')) ?></td></tr><?php endforeach; ?>
 </tbody></table>
 <p><strong>Summe Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> €</p>
 <p><strong>Summe Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>Summe PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>

@@ -6,11 +6,149 @@ final class AppRepository
 {
     public function __construct(private readonly PDO $pdo, private readonly string $prefix)
     {
+        $this->ensureSchemaInitialized();
     }
 
     private function t(string $name): string
     {
         return '`' . $this->prefix . $name . '`';
+    }
+
+    private function columnExists(string $table, string $column): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT 1
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = :table
+               AND COLUMN_NAME = :column
+             LIMIT 1'
+        );
+        $stmt->execute([
+            ':table' => $this->prefix . $table,
+            ':column' => $column,
+        ]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    private function columnDataType(string $table, string $column): ?string
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT DATA_TYPE
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = :table
+               AND COLUMN_NAME = :column
+             LIMIT 1'
+        );
+        $stmt->execute([
+            ':table' => $this->prefix . $table,
+            ':column' => $column,
+        ]);
+        $value = $stmt->fetchColumn();
+        return $value !== false ? strtolower((string) $value) : null;
+    }
+
+    private function ensureSchemaInitialized(): void
+    {
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('settings') . ' (
+            setting_key VARCHAR(64) NOT NULL,
+            setting_value TEXT NOT NULL,
+            PRIMARY KEY (setting_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('categories') . ' (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name VARCHAR(80) NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uniq_category_name (name)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('suppliers') . ' (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            category_id INT UNSIGNED NOT NULL,
+            name VARCHAR(120) NOT NULL,
+            menu_url VARCHAR(255) NOT NULL DEFAULT "",
+            phone VARCHAR(40) NOT NULL DEFAULT "",
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            PRIMARY KEY (id),
+            KEY idx_category_id (category_id),
+            FOREIGN KEY (category_id) REFERENCES ' . $this->t('categories') . ' (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('votes') . ' (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            vote_token VARCHAR(64) NOT NULL,
+            supplier_id INT UNSIGNED NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uniq_vote_token (vote_token),
+            KEY idx_supplier_id (supplier_id),
+            FOREIGN KEY (supplier_id) REFERENCES ' . $this->t('suppliers') . ' (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('orders') . ' (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            public_id VARCHAR(12) NOT NULL,
+            edit_token VARCHAR(64) NOT NULL,
+            nickname VARCHAR(40) NOT NULL,
+            dish_no VARCHAR(20) NOT NULL DEFAULT "",
+            dish_name VARCHAR(120) NOT NULL,
+            dish_size VARCHAR(40) NOT NULL DEFAULT "",
+            price DECIMAL(8,2) NOT NULL,
+            payment_method ENUM("bar", "paypal") NOT NULL DEFAULT "bar",
+            note VARCHAR(200) NOT NULL DEFAULT "",
+            confirmed TINYINT(1) NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uniq_public_id (public_id),
+            UNIQUE KEY uniq_edit_token (edit_token)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+        if (!$this->columnExists('orders', 'dish_size')) {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD COLUMN dish_size VARCHAR(40) NOT NULL DEFAULT "" AFTER dish_name');
+        }
+
+        if ($this->columnDataType('orders', 'dish_size') === 'enum') {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' MODIFY COLUMN dish_size VARCHAR(40) NOT NULL DEFAULT ""');
+        }
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('admin_users') . ' (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            username VARCHAR(40) NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uniq_username (username)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('rate_limits') . ' (
+            action_key VARCHAR(160) NOT NULL,
+            window_started_at DATETIME NOT NULL,
+            request_count INT UNSIGNED NOT NULL,
+            PRIMARY KEY (action_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+        $this->pdo->exec('INSERT INTO ' . $this->t('settings') . ' (setting_key, setting_value) VALUES
+            ("voting_end_time", "16:00:00"),
+            ("order_end_time", "18:00:00"),
+            ("daily_reset_time", "10:30:00"),
+            ("paypal_link", ""),
+            ("daily_note", ""),
+            ("order_closed", "0"),
+            ("manual_winner_supplier_id", ""),
+            ("reset_daily_note", "1"),
+            ("last_reset_at", "1970-01-01 00:00:00")
+            ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)');
+
+        $this->pdo->exec('INSERT IGNORE INTO ' . $this->t('categories') . ' (name) VALUES
+            ("Italienisch"), ("Griechisch"), ("Burger"), ("Döner"), ("Asiatisch")');
+
+        $this->pdo->exec('INSERT INTO ' . $this->t('admin_users') . ' (username, password_hash, created_at)
+            SELECT "admin", "$2y$12$GNqw/UBiF19Pd1o5Z2Toke.OTW7T.Pn0veykfJLqDpGcp7a0G.NcG", NOW()
+            WHERE NOT EXISTS (SELECT 1 FROM ' . $this->t('admin_users') . ')');
     }
 
     private function tableExists(string $name): bool
@@ -164,14 +302,15 @@ final class AppRepository
     {
         $publicId = strtoupper(bin2hex(random_bytes(4)));
         $editToken = bin2hex(random_bytes(16));
-        $sql = 'INSERT INTO ' . $this->t('orders') . ' (public_id, edit_token, nickname, dish_no, dish_name, price, payment_method, note, confirmed, created_at, updated_at)
-                VALUES (:public_id,:edit_token,:nickname,:dish_no,:dish_name,:price,:payment_method,:note,:confirmed,NOW(),NOW())';
+        $sql = 'INSERT INTO ' . $this->t('orders') . ' (public_id, edit_token, nickname, dish_no, dish_name, dish_size, price, payment_method, note, confirmed, created_at, updated_at)
+                VALUES (:public_id,:edit_token,:nickname,:dish_no,:dish_name,:dish_size,:price,:payment_method,:note,:confirmed,NOW(),NOW())';
         $this->pdo->prepare($sql)->execute([
             ':public_id' => $publicId,
             ':edit_token' => $editToken,
             ':nickname' => $data['nickname'],
             ':dish_no' => $data['dish_no'],
             ':dish_name' => $data['dish_name'],
+            ':dish_size' => $data['dish_size'],
             ':price' => $data['price'],
             ':payment_method' => $data['payment_method'],
             ':note' => $data['note'],
@@ -189,9 +328,9 @@ final class AppRepository
 
     public function updateOrder(string $token, array $data): void
     {
-        $sql = 'UPDATE ' . $this->t('orders') . ' SET nickname=:nickname,dish_no=:dish_no,dish_name=:dish_name,price=:price,payment_method=:payment_method,note=:note,updated_at=NOW() WHERE edit_token=:token';
+        $sql = 'UPDATE ' . $this->t('orders') . ' SET nickname=:nickname,dish_no=:dish_no,dish_name=:dish_name,dish_size=:dish_size,price=:price,payment_method=:payment_method,note=:note,updated_at=NOW() WHERE edit_token=:token';
         $this->pdo->prepare($sql)->execute([
-            ':nickname'=>$data['nickname'], ':dish_no'=>$data['dish_no'], ':dish_name'=>$data['dish_name'],
+            ':nickname'=>$data['nickname'], ':dish_no'=>$data['dish_no'], ':dish_name'=>$data['dish_name'], ':dish_size'=>$data['dish_size'],
             ':price'=>$data['price'], ':payment_method'=>$data['payment_method'], ':note'=>$data['note'], ':token'=>$token,
         ]);
     }
@@ -210,11 +349,12 @@ final class AppRepository
 
     public function updateOrderById(int $id, array $data): void
     {
-        $sql = 'UPDATE ' . $this->t('orders') . ' SET nickname=:nickname,dish_no=:dish_no,dish_name=:dish_name,price=:price,payment_method=:payment_method,note=:note,updated_at=NOW() WHERE id=:id';
+        $sql = 'UPDATE ' . $this->t('orders') . ' SET nickname=:nickname,dish_no=:dish_no,dish_name=:dish_name,dish_size=:dish_size,price=:price,payment_method=:payment_method,note=:note,updated_at=NOW() WHERE id=:id';
         $this->pdo->prepare($sql)->execute([
             ':nickname' => $data['nickname'],
             ':dish_no' => $data['dish_no'],
             ':dish_name' => $data['dish_name'],
+            ':dish_size' => $data['dish_size'],
             ':price' => $data['price'],
             ':payment_method' => $data['payment_method'],
             ':note' => $data['note'],

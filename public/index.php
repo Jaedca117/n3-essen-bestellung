@@ -57,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'nickname' => trim((string) ($_POST['nickname'] ?? '')),
                 'dish_no' => trim((string) ($_POST['dish_no'] ?? '')),
                 'dish_name' => trim((string) ($_POST['dish_name'] ?? '')),
+                'dish_size' => trim((string) ($_POST['dish_size'] ?? '')),
                 'price' => (float) ($_POST['price'] ?? 0),
                 'payment_method' => (string) ($_POST['payment_method'] ?? 'bar'),
                 'note' => trim((string) ($_POST['note'] ?? '')),
@@ -66,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (mb_strlen($payload['nickname']) < 2 || mb_strlen($payload['nickname']) > 40) $errors[] = 'Name muss 2-40 Zeichen haben.';
             if (mb_strlen($payload['dish_no']) > 20) $errors[] = 'Essensnummer ist zu lang.';
             if (mb_strlen($payload['dish_name']) < 2 || mb_strlen($payload['dish_name']) > 120) $errors[] = 'Gericht muss 2-120 Zeichen haben.';
+            if (mb_strlen($payload['dish_size']) > 40) $errors[] = 'Größe darf höchstens 40 Zeichen haben.';
             if ($payload['price'] <= 0 || $payload['price'] > 999) $errors[] = 'Preis muss zwischen 0,01 und 999 liegen.';
             if (!in_array($payload['payment_method'], ['bar', 'paypal'], true)) $errors[] = 'Ungültige Zahlungsart.';
             if (!$state['paypal_enabled'] && $payload['payment_method'] === 'paypal') $errors[] = 'PayPal ist heute nicht verfügbar.';
@@ -181,6 +183,7 @@ foreach ($suppliers as $supplier) {
             <label>Name/Kurzname<input type="text" name="nickname" maxlength="40" required value="<?= e((string) ($editOrder['nickname'] ?? '')) ?>"></label>
             <label>Essensnummer<input type="text" name="dish_no" maxlength="20" value="<?= e((string) ($editOrder['dish_no'] ?? '')) ?>"></label>
             <label>Gericht<input type="text" name="dish_name" maxlength="120" required value="<?= e((string) ($editOrder['dish_name'] ?? '')) ?>"></label>
+            <label>Größe (optional)<input type="text" name="dish_size" maxlength="40" placeholder="z. B. 30cm oder Familienpizza" value="<?= e((string) ($editOrder['dish_size'] ?? '')) ?>"></label>
             <label>Preis in Euro<input type="number" step="0.01" min="0.01" max="999" name="price" required value="<?= e((string) ($editOrder['price'] ?? '')) ?>"></label>
             <label>Zahlungsart
                 <select name="payment_method">
@@ -207,10 +210,10 @@ foreach ($suppliers as $supplier) {
     <section class="card">
         <h2>Bestellliste</h2>
         <table>
-            <thead><tr><th>Name</th><th>#</th><th>Gericht</th><th>Preis</th><th>Zahlung</th><th>Hinweis</th></tr></thead>
+            <thead><tr><th>Name</th><th>#</th><th>Gericht</th><th>Größe</th><th>Preis</th><th>Zahlung</th><th>Hinweis</th></tr></thead>
             <tbody>
             <?php foreach ($orders as $order): ?>
-                <tr><td><?= e((string) $order['nickname']) ?></td><td><?= e((string) $order['dish_no']) ?></td><td><?= e((string) $order['dish_name']) ?></td><td><?= number_format((float) $order['price'], 2, ',', '.') ?> €</td><td><?= e(strtoupper((string) $order['payment_method'])) ?></td><td><?= e((string) ($order['note'] ?: '-')) ?></td></tr>
+                <tr><td><?= e((string) $order['nickname']) ?></td><td><?= e((string) $order['dish_no']) ?></td><td><?= e((string) $order['dish_name']) ?></td><td><?php if (!empty($order['dish_size'])): ?><span class="dish-size"><?= e((string) $order['dish_size']) ?></span><?php else: ?>-<?php endif; ?></td><td><?= number_format((float) $order['price'], 2, ',', '.') ?> €</td><td><?= e(strtoupper((string) $order['payment_method'])) ?></td><td><?= e((string) ($order['note'] ?: '-')) ?></td></tr>
             <?php endforeach; ?>
             </tbody>
         </table>
