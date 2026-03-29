@@ -65,6 +65,15 @@ final class AppRepository
         return $this->pdo->query($sql)->fetchAll();
     }
 
+    public function allSuppliers(): array
+    {
+        $sql = 'SELECT s.*, c.name AS category_name
+                FROM ' . $this->t('suppliers') . ' s
+                LEFT JOIN ' . $this->t('categories') . ' c ON c.id=s.category_id
+                ORDER BY c.name ASC, s.name ASC';
+        return $this->pdo->query($sql)->fetchAll();
+    }
+
     public function upsertCategory(?int $id, string $name): void
     {
         if ($id) {
@@ -72,6 +81,18 @@ final class AppRepository
             return;
         }
         $this->pdo->prepare('INSERT INTO ' . $this->t('categories') . ' (name) VALUES (:n)')->execute([':n'=>$name]);
+    }
+
+    public function deleteCategory(int $id): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM ' . $this->t('suppliers') . ' WHERE category_id=:id');
+        $stmt->execute([':id' => $id]);
+        if ((int) $stmt->fetchColumn() > 0) {
+            return false;
+        }
+
+        $this->pdo->prepare('DELETE FROM ' . $this->t('categories') . ' WHERE id=:id')->execute([':id' => $id]);
+        return true;
     }
 
     public function upsertSupplier(array $data): void
@@ -90,6 +111,21 @@ final class AppRepository
             $sql = 'INSERT INTO ' . $this->t('suppliers') . ' (name, category_id, menu_url, phone, is_active) VALUES (:name,:category_id,:menu_url,:phone,:is_active)';
         }
         $this->pdo->prepare($sql)->execute($payload);
+    }
+
+    public function deleteSupplier(int $id): void
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $this->pdo->prepare('DELETE FROM ' . $this->t('votes') . ' WHERE supplier_id=:id')->execute([':id' => $id]);
+            $this->pdo->prepare('DELETE FROM ' . $this->t('suppliers') . ' WHERE id=:id')->execute([':id' => $id]);
+            $this->pdo->commit();
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
     }
 
     public function recordVote(string $token, int $supplierId): void
@@ -163,6 +199,32 @@ final class AppRepository
     public function deleteOrder(string $token): void
     {
         $this->pdo->prepare('DELETE FROM ' . $this->t('orders') . ' WHERE edit_token=:t')->execute([':t'=>$token]);
+    }
+
+    public function findOrderById(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM ' . $this->t('orders') . ' WHERE id=:id LIMIT 1');
+        $stmt->execute([':id' => $id]);
+        return $stmt->fetch() ?: null;
+    }
+
+    public function updateOrderById(int $id, array $data): void
+    {
+        $sql = 'UPDATE ' . $this->t('orders') . ' SET nickname=:nickname,dish_no=:dish_no,dish_name=:dish_name,price=:price,payment_method=:payment_method,note=:note,updated_at=NOW() WHERE id=:id';
+        $this->pdo->prepare($sql)->execute([
+            ':nickname' => $data['nickname'],
+            ':dish_no' => $data['dish_no'],
+            ':dish_name' => $data['dish_name'],
+            ':price' => $data['price'],
+            ':payment_method' => $data['payment_method'],
+            ':note' => $data['note'],
+            ':id' => $id,
+        ]);
+    }
+
+    public function deleteOrderById(int $id): void
+    {
+        $this->pdo->prepare('DELETE FROM ' . $this->t('orders') . ' WHERE id=:id')->execute([':id' => $id]);
     }
 
     public function orders(): array
