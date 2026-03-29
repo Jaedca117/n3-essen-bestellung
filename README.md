@@ -36,6 +36,143 @@ Warum passend:
 3. `sql/schema.sql` importieren.
 4. Document Root auf `public/` setzen.
 
+## Ubuntu 22.04 Anleitung (Apache)
+
+Die folgenden Schritte installieren die Anwendung auf einem frischen **Ubuntu 22.04** Server mit **Apache2**, **PHP 8.1** und **MariaDB**.
+
+### 1) System aktualisieren
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
+
+### 2) Apache, PHP und MariaDB installieren
+
+```bash
+sudo apt install -y apache2 mariadb-server \
+  php8.1 libapache2-mod-php8.1 php8.1-mysql php8.1-mbstring php8.1-xml php8.1-curl
+```
+
+Dienste starten und beim Boot aktivieren:
+
+```bash
+sudo systemctl enable --now apache2
+sudo systemctl enable --now mariadb
+```
+
+Optional Firewall freigeben:
+
+```bash
+sudo ufw allow 'Apache Full'
+sudo ufw status
+```
+
+### 3) Datenbank anlegen
+
+MariaDB absichern (empfohlen):
+
+```bash
+sudo mysql_secure_installation
+```
+
+Datenbank, Benutzer und Rechte erstellen:
+
+```sql
+sudo mysql
+CREATE DATABASE essenbestellung CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'essenuser'@'localhost' IDENTIFIED BY 'BITTE_STARKES_PASSWORT_SETZEN';
+GRANT ALL PRIVILEGES ON essenbestellung.* TO 'essenuser'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+```
+
+Schema importieren:
+
+```bash
+cd /var/www/essenbestellung
+mysql -u essenuser -p essenbestellung < sql/schema.sql
+```
+
+### 4) Projekt bereitstellen
+
+Beispiel per Git:
+
+```bash
+cd /var/www
+sudo git clone <REPO_URL> essenbestellung
+sudo chown -R www-data:www-data /var/www/essenbestellung
+```
+
+Konfiguration erzeugen:
+
+```bash
+cd /var/www/essenbestellung
+cp config.sample.php config.php
+```
+
+Danach in `config.php` die Zugangsdaten für MySQL/MariaDB eintragen.
+
+### 5) Apache VirtualHost einrichten
+
+Datei anlegen: `/etc/apache2/sites-available/essenbestellung.conf`
+
+```apache
+<VirtualHost *:80>
+    ServerName beispiel.de
+    ServerAlias www.beispiel.de
+
+    DocumentRoot /var/www/essenbestellung/public
+
+    <Directory /var/www/essenbestellung/public>
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/essenbestellung_error.log
+    CustomLog ${APACHE_LOG_DIR}/essenbestellung_access.log combined
+</VirtualHost>
+```
+
+Site aktivieren und Apache neu laden:
+
+```bash
+sudo a2ensite essenbestellung.conf
+sudo a2dissite 000-default.conf
+sudo systemctl reload apache2
+```
+
+### 6) Schreibrechte und Sicherheit
+
+```bash
+sudo chown -R www-data:www-data /var/www/essenbestellung
+sudo find /var/www/essenbestellung -type d -exec chmod 755 {} \;
+sudo find /var/www/essenbestellung -type f -exec chmod 644 {} \;
+```
+
+Wichtig:
+- `config.php` niemals im Web ausliefern (liegt im Projektroot, nicht im `public/`-Ordner).
+- Möglichst HTTPS aktivieren (z. B. mit Let's Encrypt / certbot).
+
+### 7) HTTPS aktivieren (optional, empfohlen)
+
+```bash
+sudo apt install -y certbot python3-certbot-apache
+sudo certbot --apache -d beispiel.de -d www.beispiel.de
+```
+
+### 8) Funktion prüfen
+
+```bash
+sudo apache2ctl configtest
+sudo systemctl status apache2 --no-pager
+php -v
+```
+
+Dann im Browser öffnen:
+- `http://beispiel.de/` (oder direkt die Server-IP)
+- Admin: `http://beispiel.de/admin.php`
+
 ## Erster Admin-Zugang
 
 - Benutzer: `admin`
@@ -71,4 +208,3 @@ Wenn nicht, werden Stimmen + Bestellungen + Tagesstatus zurückgesetzt.
 - Vor Update DB-Backup machen.
 - Bei Schema-Änderungen SQL gezielt migrieren.
 - `config.php` unverändert lassen, nur neue Keys ergänzen.
-
