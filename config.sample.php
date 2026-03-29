@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 return [
-    'app_name' => 'N3 Essen-Bestellung',
+    'app_name' => 'Vereins-Essen',
     'timezone' => 'Europe/Berlin',
     'db' => [
         'host' => '127.0.0.1',
@@ -12,7 +12,6 @@ return [
         'user' => 'db_user',
         'pass' => 'db_passwort',
         'charset' => 'utf8mb4',
-        // Sehr wichtig bei geteilter Datenbanknutzung mit anderen Anwendungen.
         'table_prefix' => 'n3_essen_',
     ],
 ];
