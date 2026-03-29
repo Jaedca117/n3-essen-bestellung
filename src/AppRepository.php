@@ -131,7 +131,7 @@ final class AppRepository
             PRIMARY KEY (action_key)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
-        $this->pdo->exec('INSERT INTO ' . $this->t('settings') . ' (setting_key, setting_value) VALUES
+        $this->pdo->exec('INSERT IGNORE INTO ' . $this->t('settings') . ' (setting_key, setting_value) VALUES
             ("voting_end_time", "16:00:00"),
             ("order_end_time", "18:00:00"),
             ("daily_reset_time", "10:30:00"),
@@ -140,8 +140,7 @@ final class AppRepository
             ("order_closed", "0"),
             ("manual_winner_supplier_id", ""),
             ("reset_daily_note", "1"),
-            ("last_reset_at", "1970-01-01 00:00:00")
-            ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)');
+            ("last_reset_at", "1970-01-01 00:00:00")');
 
         $this->pdo->exec('INSERT IGNORE INTO ' . $this->t('categories') . ' (name) VALUES
             ("Italienisch"), ("Griechisch"), ("Burger"), ("Döner"), ("Asiatisch")');
