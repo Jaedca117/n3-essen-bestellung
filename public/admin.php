@@ -36,6 +36,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'logi
 
 $isAdmin = isset($_SESSION['admin_id']);
 
+/**
+ * @return list<string>
+ */
+function validate_order_payload(array $payload, bool $paypalEnabled): array
+{
+    $errors = [];
+    if (mb_strlen((string) $payload['nickname']) < 2 || mb_strlen((string) $payload['nickname']) > 40) $errors[] = 'Name muss 2-40 Zeichen haben.';
+    if (mb_strlen((string) $payload['dish_no']) > 20) $errors[] = 'Essensnummer ist zu lang.';
+    if (mb_strlen((string) $payload['dish_name']) < 2 || mb_strlen((string) $payload['dish_name']) > 120) $errors[] = 'Gericht muss 2-120 Zeichen haben.';
+    if ((float) $payload['price'] <= 0 || (float) $payload['price'] > 999) $errors[] = 'Preis muss zwischen 0,01 und 999 liegen.';
+    if (!in_array((string) $payload['payment_method'], ['bar', 'paypal'], true)) $errors[] = 'Ungültige Zahlungsart.';
+    if (!$paypalEnabled && $payload['payment_method'] === 'paypal') $errors[] = 'PayPal ist heute nicht verfügbar.';
+    if (mb_strlen((string) $payload['note']) > 200) $errors[] = 'Bemerkung darf höchstens 200 Zeichen haben.';
+    return $errors;
+}
+
 if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_settings')) {
     if (!verify_csrf_token($_POST['csrf'] ?? null)) {
         $error = 'Ungültiges CSRF-Token.';
@@ -67,6 +83,21 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
     }
 }
 
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'delete_category')) {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges CSRF-Token.';
+    } else {
+        $categoryId = (int) ($_POST['id'] ?? 0);
+        if ($categoryId <= 0) {
+            $error = 'Kategorie-ID ungültig.';
+        } elseif (!$repo->deleteCategory($categoryId)) {
+            $error = 'Kategorie kann nicht gelöscht werden, solange noch Lieferanten zugeordnet sind.';
+        } else {
+            $message = 'Kategorie gelöscht.';
+        }
+    }
+}
+
 if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_supplier')) {
     if (!verify_csrf_token($_POST['csrf'] ?? null)) {
         $error = 'Ungültiges CSRF-Token.';
@@ -88,9 +119,65 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
     }
 }
 
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'delete_supplier')) {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges CSRF-Token.';
+    } else {
+        $supplierId = (int) ($_POST['id'] ?? 0);
+        if ($supplierId <= 0) {
+            $error = 'Lieferanten-ID ungültig.';
+        } else {
+            $repo->deleteSupplier($supplierId);
+            $message = 'Lieferant gelöscht.';
+        }
+    }
+}
+
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_order_admin')) {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges CSRF-Token.';
+    } else {
+        $orderId = (int) ($_POST['id'] ?? 0);
+        $payload = [
+            'nickname' => trim((string) ($_POST['nickname'] ?? '')),
+            'dish_no' => trim((string) ($_POST['dish_no'] ?? '')),
+            'dish_name' => trim((string) ($_POST['dish_name'] ?? '')),
+            'price' => (float) ($_POST['price'] ?? 0),
+            'payment_method' => (string) ($_POST['payment_method'] ?? 'bar'),
+            'note' => trim((string) ($_POST['note'] ?? '')),
+        ];
+        if ($orderId <= 0 || !$repo->findOrderById($orderId)) {
+            $error = 'Bestellung nicht gefunden.';
+        } else {
+            $orderErrors = validate_order_payload($payload, $state['paypal_enabled']);
+            if ($orderErrors) {
+                $error = implode(' ', $orderErrors);
+            } else {
+                $repo->updateOrderById($orderId, $payload);
+                $message = 'Bestellung aktualisiert.';
+            }
+        }
+    }
+}
+
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'delete_order_admin')) {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges CSRF-Token.';
+    } else {
+        $orderId = (int) ($_POST['id'] ?? 0);
+        if ($orderId <= 0 || !$repo->findOrderById($orderId)) {
+            $error = 'Bestellung nicht gefunden.';
+        } else {
+            $repo->deleteOrderById($orderId);
+            $message = 'Bestellung gelöscht.';
+        }
+    }
+}
+
 $settings = $repo->getSettings();
 $categories = $repo->categories();
-$suppliers = $repo->suppliers();
+$suppliers = $repo->allSuppliers();
+$orders = $repo->orders();
 ?>
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin</title><link rel="stylesheet" href="style.css"></head>
@@ -116,12 +203,16 @@ $suppliers = $repo->suppliers();
 <button>Speichern</button></form>
 </section>
 
-<section class="card"><h2>Kategorie hinzufügen</h2>
+<section class="card"><h2>Kategorien verwalten</h2>
 <form method="post"><input type="hidden" name="action" value="save_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><label>Name<input name="name" maxlength="80" required></label><button>Speichern</button></form>
-<ul><?php foreach ($categories as $c): ?><li>#<?= (int) $c['id'] ?> - <?= e((string) $c['name']) ?></li><?php endforeach; ?></ul>
+<ul><?php foreach ($categories as $c): ?><li>
+    <form method="post" class="inline"><input type="hidden" name="action" value="save_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
+    #<?= (int) $c['id'] ?> <input name="name" maxlength="80" required value="<?= e((string) $c['name']) ?>"><button>Ändern</button></form>
+    <form method="post" class="inline"><input type="hidden" name="action" value="delete_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>"><button class="danger">Löschen</button></form>
+</li><?php endforeach; ?></ul>
 </section>
 
-<section class="card"><h2>Lieferant hinzufügen</h2>
+<section class="card"><h2>Lieferanten verwalten</h2>
 <form method="post"><input type="hidden" name="action" value="save_supplier"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
 <label>Name<input name="name" maxlength="120" required></label>
 <label>Kategorie<select name="category_id"><?php foreach ($categories as $c): ?><option value="<?= (int) $c['id'] ?>"><?= e((string) $c['name']) ?></option><?php endforeach; ?></select></label>
@@ -129,7 +220,43 @@ $suppliers = $repo->suppliers();
 <label>Telefon<input name="phone" maxlength="40"></label>
 <label class="check"><input type="checkbox" name="is_active" checked> Aktiv</label>
 <button>Speichern</button></form>
-<ul><?php foreach ($suppliers as $s): ?><li>#<?= (int) $s['id'] ?> - <?= e((string) $s['name']) ?> (<?= e((string) ($s['category_name'] ?? '-')) ?>)</li><?php endforeach; ?></ul>
+<ul><?php foreach ($suppliers as $s): ?><li>
+    <form method="post">
+        <input type="hidden" name="action" value="save_supplier">
+        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+        <input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
+        #<?= (int) $s['id'] ?>
+        <input name="name" maxlength="120" required value="<?= e((string) $s['name']) ?>">
+        <select name="category_id"><?php foreach ($categories as $c): ?><option value="<?= (int) $c['id'] ?>" <?= ((int) $c['id'] === (int) $s['category_id']) ? 'selected' : '' ?>><?= e((string) $c['name']) ?></option><?php endforeach; ?></select>
+        <input name="menu_url" maxlength="255" value="<?= e((string) $s['menu_url']) ?>" placeholder="Speisekarten-Link">
+        <input name="phone" maxlength="40" value="<?= e((string) $s['phone']) ?>" placeholder="Telefon">
+        <label class="check"><input type="checkbox" name="is_active" <?= ((int) $s['is_active'] === 1) ? 'checked' : '' ?>> Aktiv</label>
+        <button>Ändern</button>
+    </form>
+    <form method="post" class="inline"><input type="hidden" name="action" value="delete_supplier"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $s['id'] ?>"><button class="danger">Löschen</button></form>
+</li><?php endforeach; ?></ul>
+</section>
+
+<section class="card"><h2>Aktuelle Bestellungen verwalten</h2>
+<ul><?php foreach ($orders as $o): ?><li>
+    <form method="post">
+        <input type="hidden" name="action" value="save_order_admin">
+        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+        <input type="hidden" name="id" value="<?= (int) $o['id'] ?>">
+        #<?= (int) $o['id'] ?>
+        <input name="nickname" maxlength="40" required value="<?= e((string) $o['nickname']) ?>" placeholder="Name">
+        <input name="dish_no" maxlength="20" value="<?= e((string) $o['dish_no']) ?>" placeholder="Nr.">
+        <input name="dish_name" maxlength="120" required value="<?= e((string) $o['dish_name']) ?>" placeholder="Gericht">
+        <input type="number" step="0.01" min="0.01" max="999" name="price" required value="<?= e((string) $o['price']) ?>" placeholder="Preis">
+        <select name="payment_method">
+            <option value="bar" <?= ($o['payment_method'] === 'bar') ? 'selected' : '' ?>>Bar</option>
+            <?php if ($state['paypal_enabled']): ?><option value="paypal" <?= ($o['payment_method'] === 'paypal') ? 'selected' : '' ?>>PayPal</option><?php endif; ?>
+        </select>
+        <input name="note" maxlength="200" value="<?= e((string) $o['note']) ?>" placeholder="Hinweis">
+        <button>Ändern</button>
+    </form>
+    <form method="post" class="inline"><input type="hidden" name="action" value="delete_order_admin"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $o['id'] ?>"><button class="danger">Löschen</button></form>
+</li><?php endforeach; ?></ul>
 </section>
 <?php endif; ?>
 
