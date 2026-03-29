@@ -176,7 +176,7 @@ foreach ($suppliers as $supplier) {
         </section>
     <?php endif; ?>
 
-
+    <?php if ($state['phase'] === 'ordering'): ?>
         <section class="card">
             <h2>2) Bestellung eintragen</h2>
             <form method="post">
