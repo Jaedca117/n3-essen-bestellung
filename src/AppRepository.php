@@ -202,7 +202,9 @@ final class AppRepository
             $this->saveSetting('last_reset_at', (new DateTimeImmutable('now'))->format('Y-m-d H:i:s'));
             $this->pdo->commit();
         } catch (Throwable $e) {
-            $this->pdo->rollBack();
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
             throw $e;
         }
     }
