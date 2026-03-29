@@ -176,36 +176,38 @@ foreach ($suppliers as $supplier) {
         </section>
     <?php endif; ?>
 
-    <section class="card">
-        <h2>2) Bestellung eintragen</h2>
-        <form method="post">
-            <input type="hidden" name="action" value="<?= $editOrder ? 'order_update' : 'order_create' ?>">
-            <label>Name/Kurzname<input type="text" name="nickname" maxlength="40" required value="<?= e((string) ($editOrder['nickname'] ?? '')) ?>"></label>
-            <label>Essensnummer<input type="text" name="dish_no" maxlength="20" value="<?= e((string) ($editOrder['dish_no'] ?? '')) ?>"></label>
-            <label>Gericht<input type="text" name="dish_name" maxlength="120" required value="<?= e((string) ($editOrder['dish_name'] ?? '')) ?>"></label>
-            <label>Größe (optional)<input type="text" name="dish_size" maxlength="40" placeholder="z. B. 30cm oder Familienpizza" value="<?= e((string) ($editOrder['dish_size'] ?? '')) ?>"></label>
-            <label>Preis in Euro<input type="number" step="0.01" min="0.01" max="999" name="price" required value="<?= e((string) ($editOrder['price'] ?? '')) ?>"></label>
-            <label>Zahlungsart
-                <select name="payment_method">
-                    <option value="bar" <?= (($editOrder['payment_method'] ?? 'bar') === 'bar') ? 'selected' : '' ?>>Bar</option>
-                    <?php if ($state['paypal_enabled']): ?><option value="paypal" <?= (($editOrder['payment_method'] ?? '') === 'paypal') ? 'selected' : '' ?>>PayPal</option><?php endif; ?>
-                </select>
-            </label>
-            <label>Bemerkung<input type="text" name="note" maxlength="200" value="<?= e((string) ($editOrder['note'] ?? '')) ?>"></label>
-            <?php if ($editOrder): ?><input type="hidden" name="edit_token" value="<?= e((string) $editOrder['edit_token']) ?>"><?php endif; ?>
-            <label class="check"><input type="checkbox" name="confirmed" value="1" required> Ich bestätige, dass ich verbindlich bestellen möchte.</label>
-            <button type="submit" <?= $state['phase'] !== 'ordering' ? 'disabled' : '' ?>><?= $editOrder ? 'Bestellung aktualisieren' : 'Bestellung speichern' ?></button>
-        </form>
+    <?php if ($state['phase'] === 'ordering'): ?>
+        <section class="card">
+            <h2>2) Bestellung eintragen</h2>
+            <form method="post">
+                <input type="hidden" name="action" value="<?= $editOrder ? 'order_update' : 'order_create' ?>">
+                <label>Name/Kurzname<input type="text" name="nickname" maxlength="40" required value="<?= e((string) ($editOrder['nickname'] ?? '')) ?>"></label>
+                <label>Essensnummer<input type="text" name="dish_no" maxlength="20" value="<?= e((string) ($editOrder['dish_no'] ?? '')) ?>"></label>
+                <label>Gericht<input type="text" name="dish_name" maxlength="120" required value="<?= e((string) ($editOrder['dish_name'] ?? '')) ?>"></label>
+                <label>Größe (optional)<input type="text" name="dish_size" maxlength="40" placeholder="z. B. 30cm oder Familienpizza" value="<?= e((string) ($editOrder['dish_size'] ?? '')) ?>"></label>
+                <label>Preis in Euro<input type="number" step="0.01" min="0.01" max="999" name="price" required value="<?= e((string) ($editOrder['price'] ?? '')) ?>"></label>
+                <label>Zahlungsart
+                    <select name="payment_method">
+                        <option value="bar" <?= (($editOrder['payment_method'] ?? 'bar') === 'bar') ? 'selected' : '' ?>>Bar</option>
+                        <?php if ($state['paypal_enabled']): ?><option value="paypal" <?= (($editOrder['payment_method'] ?? '') === 'paypal') ? 'selected' : '' ?>>PayPal</option><?php endif; ?>
+                    </select>
+                </label>
+                <label>Bemerkung<input type="text" name="note" maxlength="200" value="<?= e((string) ($editOrder['note'] ?? '')) ?>"></label>
+                <?php if ($editOrder): ?><input type="hidden" name="edit_token" value="<?= e((string) $editOrder['edit_token']) ?>"><?php endif; ?>
+                <label class="check"><input type="checkbox" name="confirmed" value="1" required> Ich bestätige, dass ich verbindlich bestellen möchte.</label>
+                <button type="submit"><?= $editOrder ? 'Bestellung aktualisieren' : 'Bestellung speichern' ?></button>
+            </form>
 
-        <h3>Bestehende Bestellung bearbeiten/löschen</h3>
-        <form method="get" class="inline">
-            <input type="text" name="edit" placeholder="Bearbeitungs-Token" pattern="[a-f0-9]{32}" required>
-            <button type="submit">Laden</button>
-        </form>
-        <?php if ($editOrder): ?>
-            <form method="post"><input type="hidden" name="action" value="order_delete"><input type="hidden" name="edit_token" value="<?= e((string) $editOrder['edit_token']) ?>"><button type="submit" class="danger">Bestellung löschen</button></form>
-        <?php endif; ?>
-    </section>
+            <h3>Bestehende Bestellung bearbeiten/löschen</h3>
+            <form method="get" class="inline">
+                <input type="text" name="edit" placeholder="Bearbeitungs-Token" pattern="[a-f0-9]{32}" required>
+                <button type="submit">Laden</button>
+            </form>
+            <?php if ($editOrder): ?>
+                <form method="post"><input type="hidden" name="action" value="order_delete"><input type="hidden" name="edit_token" value="<?= e((string) $editOrder['edit_token']) ?>"><button type="submit" class="danger">Bestellung löschen</button></form>
+            <?php endif; ?>
+        </section>
+    <?php endif; ?>
 
     <section class="card">
         <h2>Bestellliste</h2>
