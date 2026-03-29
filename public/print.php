@@ -1,0 +1,27 @@
+<?php
+
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/src/bootstrap.php';
+
+$pdo = Database::connect($config['db']);
+$repo = new AppRepository($pdo, (string) ($config['db']['table_prefix'] ?? 'n3_essen_'));
+$service = new AppService($repo);
+$state = $service->runtimeState();
+$settings = $state['settings'];
+$winner = $service->winner($settings);
+$orders = $repo->orders();
+$totals = $repo->orderTotals();
+?>
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Druckansicht</title><link rel="stylesheet" href="style.css"><style>@media print{a{color:#000;text-decoration:none}.noprint{display:none}}</style></head>
+<body><main class="container"><p class="noprint"><a href="index.php">Zurück</a></p><h1>Druckansicht <?= e((new DateTimeImmutable('now'))->format('d.m.Y')) ?></h1>
+<p><strong>Lieferant:</strong> <?= e((string) ($winner['name'] ?? 'Noch kein Gewinner')) ?></p>
+<?php if ($winner): ?><p><strong>Tel.:</strong> <?= e((string) $winner['phone']) ?> · <strong>Speisekarte:</strong> <?= e((string) $winner['menu_url']) ?></p><?php endif; ?>
+<?php if (!empty($settings['daily_note'])): ?><p><strong>Tageshinweis:</strong> <?= e((string) $settings['daily_note']) ?></p><?php endif; ?>
+<table><thead><tr><th>Name</th><th>Nr</th><th>Gericht</th><th>Preis</th><th>Zahlung</th><th>Notiz</th></tr></thead><tbody>
+<?php foreach ($orders as $o): ?><tr><td><?= e((string) $o['nickname']) ?></td><td><?= e((string) $o['dish_no']) ?></td><td><?= e((string) $o['dish_name']) ?></td><td><?= number_format((float) $o['price'], 2, ',', '.') ?> €</td><td><?= e((string) strtoupper((string) $o['payment_method'])) ?></td><td><?= e((string) ($o['note'] ?: '-')) ?></td></tr><?php endforeach; ?>
+</tbody></table>
+<p><strong>Summe Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> €</p>
+<p><strong>Summe Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>Summe PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>
+</main></body></html>
