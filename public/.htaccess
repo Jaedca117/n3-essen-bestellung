@@ -1,0 +1,3 @@
+# Falls nötig, kann hier ein Front-Controller-Rewrite ergänzt werden.
+# Bei dieser App reicht es, index.php direkt aufzurufen.
+DirectoryIndex index.php
