@@ -13,6 +13,26 @@ final class AppRepository
         return '`' . $this->prefix . $name . '`';
     }
 
+    private function tableExists(string $name): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT 1
+             FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table
+             LIMIT 1'
+        );
+        $stmt->execute([':table' => $this->prefix . $name]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    private function deleteAllRowsIfTableExists(string $name): void
+    {
+        if (!$this->tableExists($name)) {
+            return;
+        }
+        $this->pdo->exec('DELETE FROM ' . $this->t($name));
+    }
+
     public function getSettings(): array
     {
         $stmt = $this->pdo->query('SELECT setting_key, setting_value FROM ' . $this->t('settings'));
@@ -192,8 +212,9 @@ final class AppRepository
     {
         $this->pdo->beginTransaction();
         try {
-            $this->pdo->exec('TRUNCATE TABLE ' . $this->t('votes'));
-            $this->pdo->exec('TRUNCATE TABLE ' . $this->t('orders'));
+            $this->deleteAllRowsIfTableExists('votes');
+            $this->deleteAllRowsIfTableExists('order_items');
+            $this->deleteAllRowsIfTableExists('orders');
             $this->saveSetting('order_closed', '0');
             $this->saveSetting('manual_winner_supplier_id', '');
             if ($resetNote) {
