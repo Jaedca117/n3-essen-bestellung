@@ -176,7 +176,7 @@ foreach ($suppliers as $supplier) {
         </section>
     <?php endif; ?>
 
-    <?php if ($state['phase'] === 'ordering'): ?>
+
         <section class="card">
             <h2>2) Bestellung eintragen</h2>
             <form method="post">
@@ -195,7 +195,6 @@ foreach ($suppliers as $supplier) {
                 <label>Bemerkung<input type="text" name="note" maxlength="200" value="<?= e((string) ($editOrder['note'] ?? '')) ?>"></label>
                 <?php if ($editOrder): ?><input type="hidden" name="edit_token" value="<?= e((string) $editOrder['edit_token']) ?>"><?php endif; ?>
                 <label class="check"><input type="checkbox" name="confirmed" value="1" required> Ich bestätige, dass ich verbindlich bestellen möchte.</label>
-                <button type="submit"><?= $editOrder ? 'Bestellung aktualisieren' : 'Bestellung speichern' ?></button>
             </form>
 
             <h3>Bestehende Bestellung bearbeiten/löschen</h3>
