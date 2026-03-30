@@ -191,7 +191,7 @@ foreach ($suppliers as $supplier) {
 
     <?php if ($state['phase'] === 'voting' && !$hasVoted): ?>
         <section class="card">
-            <h2>1) Abstimmen</h2>
+            <h2>Abstimmen</h2>
             <?php foreach ($groupedSuppliers as $category => $items): ?>
                 <h3><?= e((string) $category) ?></h3>
                 <div class="supplier-grid">
@@ -211,7 +211,7 @@ foreach ($suppliers as $supplier) {
 
     <?php if ($state['phase'] === 'voting' && $hasVoted): ?>
         <section class="card">
-            <h2>1) Abstimmen</h2>
+            <h2>Abstimmen</h2>
             <p class="notice success">Vielen Dank für deine Stimme! Du hast heute bereits abgestimmt – unten siehst du das aktuelle Zwischenergebnis.</p>
         </section>
     <?php endif; ?>
@@ -245,7 +245,7 @@ foreach ($suppliers as $supplier) {
 
     <?php if ($state['phase'] === 'ordering'): ?>
         <section class="card">
-            <h2>2) Bestellung eintragen</h2>
+            <h2>Bestellen</h2>
             <form method="post">
                 <input type="hidden" name="action" value="<?= $editOrder ? 'order_update' : 'order_create' ?>">
                 <label>Name/Kurzname<input type="text" name="nickname" maxlength="40" required value="<?= e((string) ($editOrder['nickname'] ?? '')) ?>"></label>
