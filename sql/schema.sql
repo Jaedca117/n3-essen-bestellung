@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS `n3_essen_orders` (
   `dish_size` VARCHAR(40) NOT NULL DEFAULT '',
   `price` DECIMAL(8,2) NOT NULL,
   `payment_method` ENUM('bar','paypal') NOT NULL DEFAULT 'bar',
+  `is_paid` TINYINT(1) NOT NULL DEFAULT 0,
   `note` VARCHAR(200) NOT NULL DEFAULT '',
   `confirmed` TINYINT(1) NOT NULL DEFAULT 1,
   `created_at` DATETIME NOT NULL,

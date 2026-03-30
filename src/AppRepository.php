@@ -123,6 +123,9 @@ final class AppRepository
             $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD COLUMN created_by_token VARCHAR(64) NOT NULL DEFAULT "" AFTER edit_token');
             $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD KEY idx_created_by_token (created_by_token)');
         }
+        if (!$this->columnExists('orders', 'is_paid')) {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD COLUMN is_paid TINYINT(1) NOT NULL DEFAULT 0 AFTER payment_method');
+        }
 
         if ($this->columnDataType('orders', 'dish_size') === 'enum') {
             $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' MODIFY COLUMN dish_size VARCHAR(40) NOT NULL DEFAULT ""');
@@ -358,8 +361,8 @@ final class AppRepository
     {
         $publicId = strtoupper(bin2hex(random_bytes(4)));
         $editToken = bin2hex(random_bytes(16));
-        $sql = 'INSERT INTO ' . $this->t('orders') . ' (public_id, edit_token, created_by_token, nickname, dish_no, dish_name, dish_size, price, payment_method, note, confirmed, created_at, updated_at)
-                VALUES (:public_id,:edit_token,:created_by_token,:nickname,:dish_no,:dish_name,:dish_size,:price,:payment_method,:note,:confirmed,NOW(),NOW())';
+        $sql = 'INSERT INTO ' . $this->t('orders') . ' (public_id, edit_token, created_by_token, nickname, dish_no, dish_name, dish_size, price, payment_method, is_paid, note, confirmed, created_at, updated_at)
+                VALUES (:public_id,:edit_token,:created_by_token,:nickname,:dish_no,:dish_name,:dish_size,:price,:payment_method,:is_paid,:note,:confirmed,NOW(),NOW())';
         $this->pdo->prepare($sql)->execute([
             ':public_id' => $publicId,
             ':edit_token' => $editToken,
@@ -370,6 +373,7 @@ final class AppRepository
             ':dish_size' => $data['dish_size'],
             ':price' => $data['price'],
             ':payment_method' => $data['payment_method'],
+            ':is_paid' => !empty($data['is_paid']) ? 1 : 0,
             ':note' => $data['note'],
             ':confirmed' => 1,
         ]);
@@ -413,7 +417,7 @@ final class AppRepository
 
     public function updateOrderById(int $id, array $data): void
     {
-        $sql = 'UPDATE ' . $this->t('orders') . ' SET nickname=:nickname,dish_no=:dish_no,dish_name=:dish_name,dish_size=:dish_size,price=:price,payment_method=:payment_method,note=:note,updated_at=NOW() WHERE id=:id';
+        $sql = 'UPDATE ' . $this->t('orders') . ' SET nickname=:nickname,dish_no=:dish_no,dish_name=:dish_name,dish_size=:dish_size,price=:price,payment_method=:payment_method,is_paid=:is_paid,note=:note,updated_at=NOW() WHERE id=:id';
         $this->pdo->prepare($sql)->execute([
             ':nickname' => $data['nickname'],
             ':dish_no' => $data['dish_no'],
@@ -421,6 +425,7 @@ final class AppRepository
             ':dish_size' => $data['dish_size'],
             ':price' => $data['price'],
             ':payment_method' => $data['payment_method'],
+            ':is_paid' => !empty($data['is_paid']) ? 1 : 0,
             ':note' => $data['note'],
             ':id' => $id,
         ]);
@@ -429,6 +434,14 @@ final class AppRepository
     public function deleteOrderById(int $id): void
     {
         $this->pdo->prepare('DELETE FROM ' . $this->t('orders') . ' WHERE id=:id')->execute([':id' => $id]);
+    }
+
+    public function setOrderPaidStatus(int $id, bool $isPaid): void
+    {
+        $this->pdo->prepare('UPDATE ' . $this->t('orders') . ' SET is_paid=:is_paid, updated_at=NOW() WHERE id=:id')->execute([
+            ':is_paid' => $isPaid ? 1 : 0,
+            ':id' => $id,
+        ]);
     }
 
     public function updateOrderByIdAndOwnerToken(int $id, string $ownerToken, array $data): void
