@@ -184,7 +184,7 @@ $orders = $repo->orders();
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin</title><link rel="stylesheet" href="style.css"></head>
 <body><main class="container"><h1>Admin-Bereich</h1>
-<p><a href="index.php">Zur Startseite</a><?= $isAdmin ? ' · <a href="?logout=1">Logout</a>' : '' ?></p>
+<p><a href="index.php">Zur Startseite</a><?= $isAdmin ? ' · <a href="print.php" target="_blank" rel="noopener">Druckansicht</a> · <a href="?logout=1">Logout</a>' : '' ?></p>
 <?php if ($message): ?><p class="notice success"><?= e($message) ?></p><?php endif; ?>
 <?php if ($error): ?><p class="notice error"><?= e($error) ?></p><?php endif; ?>
 

@@ -9,6 +9,12 @@ $repo = new AppRepository($pdo, (string) ($config['db']['table_prefix'] ?? 'n3_e
 $service = new AppService($repo);
 $state = $service->runtimeState();
 $settings = $state['settings'];
+
+if (!isset($_SESSION['admin_id'])) {
+    header('Location: admin.php');
+    exit;
+}
+
 $winner = $service->winner($settings);
 $orders = $repo->orders();
 $totals = $repo->orderTotals();

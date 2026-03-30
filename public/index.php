@@ -82,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($errors) {
                 $error = implode(' ', $errors);
             } elseif ($action === 'order_create') {
+                $payload['created_by_token'] = (string) $_COOKIE['vote_token'];
                 $created = $repo->createOrder($payload);
                 $message = 'Bestellung gespeichert. Bearbeitungs-Token: ' . $created['edit_token'];
             } elseif ($action === 'order_update') {
@@ -110,8 +111,8 @@ $settings = $state['settings'];
 $suppliers = $repo->suppliers();
 $voteResults = $repo->voteResults();
 $winner = $service->winner($settings);
-$orders = $repo->orders();
-$totals = $repo->orderTotals();
+$orders = $repo->ordersByOwnerToken((string) $_COOKIE['vote_token']);
+$totals = $repo->orderTotalsByOwnerToken((string) $_COOKIE['vote_token']);
 
 $groupedSuppliers = [];
 foreach ($suppliers as $supplier) {
@@ -133,7 +134,7 @@ foreach ($suppliers as $supplier) {
         <p>Phase: <strong><?= $state['phase'] === 'voting' ? 'Abstimmung offen' : ($state['phase'] === 'ordering' ? 'Bestellphase offen' : 'Geschlossen') ?></strong></p>
         <p>Abstimmung bis <?= e($state['voting_end']->format('H:i')) ?> Uhr · Bestellung bis <?= e($state['order_end']->format('H:i')) ?> Uhr</p>
         <?php if (!empty($settings['daily_note'])): ?><p class="notice info"><strong>Tageshinweis:</strong> <?= e((string) $settings['daily_note']) ?></p><?php endif; ?>
-        <p><a href="print.php">Druckansicht</a> · <a href="admin.php">Admin</a></p>
+        <p><a href="admin.php">Admin</a></p>
     </header>
 
     <?php if ($message): ?><p class="notice success"><?= e($message) ?></p><?php endif; ?>
@@ -222,7 +223,7 @@ foreach ($suppliers as $supplier) {
     <?php endif; ?>
 
     <section class="card">
-        <h2>Bestellliste</h2>
+        <h2>Meine Bestellungen</h2>
         <table>
             <thead><tr><th>Name</th><th>#</th><th>Gericht</th><th>Größe</th><th>Preis</th><th>Zahlung</th><th>Hinweis</th></tr></thead>
             <tbody>
@@ -231,6 +232,7 @@ foreach ($suppliers as $supplier) {
             <?php endforeach; ?>
             </tbody>
         </table>
+        <?php if (!$orders): ?><p class="muted">Du hast noch keine Bestellung erfasst.</p><?php endif; ?>
         <p><strong>Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> € · <strong>Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>
         <?php if (!empty($settings['paypal_link']) && $state['paypal_enabled']): ?><p><a href="<?= e((string) $settings['paypal_link']) ?>" target="_blank" rel="noopener">PayPal-Link des Verantwortlichen</a></p><?php endif; ?>
     </section>
