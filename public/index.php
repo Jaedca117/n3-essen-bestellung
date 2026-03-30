@@ -194,8 +194,8 @@ foreach ($suppliers as $supplier) {
 
     <?php if ($winner && $state['phase'] !== 'voting'): ?>
         <section class="card">
-            <h2>Gewinner: <?= e((string) $winner['name']) ?></h2>
-            <p><?= e((string) ($winner['category_name'] ?? '-')) ?> · Tel. <?= e((string) $winner['phone']) ?> · <a href="<?= e((string) $winner['menu_url']) ?>" target="_blank" rel="noopener">Speisekarte</a></p>
+            <h2>Gewinner: <?= e((string) ($winner['category_name'] ?? '-')) ?></h2>
+            <p><?= e((string) $winner['name']) ?> - <a href="<?= e((string) $winner['menu_url']) ?>" target="_blank" rel="noopener">Speisekarte</a></p>
         </section>
     <?php endif; ?>
 

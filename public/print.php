@@ -22,8 +22,8 @@ $totals = $repo->orderTotals();
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Druckansicht</title><link rel="stylesheet" href="style.css"><style>@media print{a{color:#000;text-decoration:none}.noprint{display:none}}</style></head>
 <body><main class="container"><p class="noprint"><a href="index.php">Zurück</a></p><h1>Druckansicht <?= e((new DateTimeImmutable('now'))->format('d.m.Y')) ?></h1>
-<p><strong>Lieferant:</strong> <?= e((string) ($winner['name'] ?? 'Noch kein Gewinner')) ?></p>
-<?php if ($winner): ?><p><strong>Tel.:</strong> <?= e((string) $winner['phone']) ?> · <strong>Speisekarte:</strong> <?= e((string) $winner['menu_url']) ?></p><?php endif; ?>
+<p><strong>Gewinner:</strong> <?= e((string) ($winner['category_name'] ?? 'Noch kein Gewinner')) ?></p>
+<?php if ($winner): ?><p><?= e((string) $winner['name']) ?> - <strong>Speisekarte:</strong> <?= e((string) $winner['menu_url']) ?></p><?php endif; ?>
 <?php if (!empty($settings['daily_note'])): ?><p><strong>Tageshinweis:</strong> <?= e((string) $settings['daily_note']) ?></p><?php endif; ?>
 <table><thead><tr><th>Name</th><th>Nr</th><th>Gericht</th><th>Größe</th><th>Preis</th><th>Zahlung</th><th>Notiz</th></tr></thead><tbody>
 <?php foreach ($orders as $o): ?><tr><td><?= e((string) $o['nickname']) ?></td><td><?= e((string) $o['dish_no']) ?></td><td><?= e((string) $o['dish_name']) ?></td><td><?= e((string) ($o['dish_size'] ?: '-')) ?></td><td><?= number_format((float) $o['price'], 2, ',', '.') ?> €</td><td><?= e((string) strtoupper((string) $o['payment_method'])) ?></td><td><?= e((string) ($o['note'] ?: '-')) ?></td></tr><?php endforeach; ?>
