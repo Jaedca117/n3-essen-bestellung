@@ -77,6 +77,8 @@ INSERT INTO `n3_essen_settings` (`setting_key`, `setting_value`) VALUES
 ('order_end_time', '18:00:00'),
 ('daily_reset_time', '10:30:00'),
 ('paypal_link', ''),
+('paypal_links', '[]'),
+('paypal_link_active_id', ''),
 ('daily_note', ''),
 ('order_closed', '0'),
 ('manual_winner_supplier_id', ''),
