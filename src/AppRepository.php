@@ -265,6 +265,13 @@ final class AppRepository
         }
     }
 
+    public function hasVoteForToken(string $token): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT 1 FROM ' . $this->t('votes') . ' WHERE vote_token=:t LIMIT 1');
+        $stmt->execute([':t' => $token]);
+        return (bool) $stmt->fetchColumn();
+    }
+
     public function recordVote(string $token, int $supplierId): void
     {
         $sql = 'INSERT INTO ' . $this->t('votes') . ' (vote_token, supplier_id, created_at, updated_at)
