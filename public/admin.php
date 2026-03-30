@@ -387,6 +387,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             'dish_size' => trim((string) ($_POST['dish_size'] ?? '')),
             'price' => (float) ($_POST['price'] ?? 0),
             'payment_method' => (string) ($_POST['payment_method'] ?? 'bar'),
+            'is_paid' => isset($_POST['is_paid']) ? 1 : 0,
             'note' => trim((string) ($_POST['note'] ?? '')),
         ];
         if ($orderId <= 0 || !$repo->findOrderById($orderId)) {
@@ -401,6 +402,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
                     'nickname' => $payload['nickname'],
                     'dish_name' => $payload['dish_name'],
                     'payment_method' => $payload['payment_method'],
+                    'is_paid' => $payload['is_paid'],
                 ]);
                 $message = 'Bestellung aktualisiert.';
             }
@@ -573,6 +575,7 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
             <option value="bar" <?= ($o['payment_method'] === 'bar') ? 'selected' : '' ?>>Bar</option>
             <?php if ($state['paypal_enabled']): ?><option value="paypal" <?= ($o['payment_method'] === 'paypal') ? 'selected' : '' ?>>PayPal</option><?php endif; ?>
         </select>
+        <label class="check"><input type="checkbox" name="is_paid" value="1" <?= ((int) ($o['is_paid'] ?? 0) === 1) ? 'checked' : '' ?>> Bezahlt</label>
         <input name="note" maxlength="200" value="<?= e((string) $o['note']) ?>" placeholder="Hinweis">
         <button>Ändern</button>
     </form>
