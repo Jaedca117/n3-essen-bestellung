@@ -360,6 +360,13 @@ final class AppRepository
         return $stmt->fetch() ?: null;
     }
 
+    public function findOrderByIdAndOwnerToken(int $id, string $ownerToken): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM ' . $this->t('orders') . ' WHERE id=:id AND created_by_token=:token LIMIT 1');
+        $stmt->execute([':id' => $id, ':token' => $ownerToken]);
+        return $stmt->fetch() ?: null;
+    }
+
     public function updateOrderById(int $id, array $data): void
     {
         $sql = 'UPDATE ' . $this->t('orders') . ' SET nickname=:nickname,dish_no=:dish_no,dish_name=:dish_name,dish_size=:dish_size,price=:price,payment_method=:payment_method,note=:note,updated_at=NOW() WHERE id=:id';
@@ -378,6 +385,30 @@ final class AppRepository
     public function deleteOrderById(int $id): void
     {
         $this->pdo->prepare('DELETE FROM ' . $this->t('orders') . ' WHERE id=:id')->execute([':id' => $id]);
+    }
+
+    public function updateOrderByIdAndOwnerToken(int $id, string $ownerToken, array $data): void
+    {
+        $sql = 'UPDATE ' . $this->t('orders') . ' SET nickname=:nickname,dish_no=:dish_no,dish_name=:dish_name,dish_size=:dish_size,price=:price,payment_method=:payment_method,note=:note,updated_at=NOW() WHERE id=:id AND created_by_token=:owner_token';
+        $this->pdo->prepare($sql)->execute([
+            ':nickname' => $data['nickname'],
+            ':dish_no' => $data['dish_no'],
+            ':dish_name' => $data['dish_name'],
+            ':dish_size' => $data['dish_size'],
+            ':price' => $data['price'],
+            ':payment_method' => $data['payment_method'],
+            ':note' => $data['note'],
+            ':id' => $id,
+            ':owner_token' => $ownerToken,
+        ]);
+    }
+
+    public function deleteOrderByIdAndOwnerToken(int $id, string $ownerToken): void
+    {
+        $this->pdo->prepare('DELETE FROM ' . $this->t('orders') . ' WHERE id=:id AND created_by_token=:token')->execute([
+            ':id' => $id,
+            ':token' => $ownerToken,
+        ]);
     }
 
     public function orders(): array
