@@ -97,26 +97,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Zu viele Aktionen in kurzer Zeit. Bitte kurz warten.';
         } else {
             $orderId = (int) ($_POST['order_id'] ?? 0);
-            $payload = [
-                'nickname' => trim((string) ($_POST['nickname'] ?? '')),
-                'dish_no' => trim((string) ($_POST['dish_no'] ?? '')),
-                'dish_name' => trim((string) ($_POST['dish_name'] ?? '')),
-                'dish_size' => trim((string) ($_POST['dish_size'] ?? '')),
-                'price' => (float) ($_POST['price'] ?? 0),
-                'payment_method' => (string) ($_POST['payment_method'] ?? 'bar'),
-                'note' => trim((string) ($_POST['note'] ?? '')),
-            ];
-
             $errors = [];
-            if (mb_strlen($payload['nickname']) < 2 || mb_strlen($payload['nickname']) > 40) $errors[] = 'Name muss 2-40 Zeichen haben.';
-            if (mb_strlen($payload['dish_no']) > 20) $errors[] = 'Essensnummer ist zu lang.';
-            if (mb_strlen($payload['dish_name']) < 2 || mb_strlen($payload['dish_name']) > 120) $errors[] = 'Gericht muss 2-120 Zeichen haben.';
-            if (mb_strlen($payload['dish_size']) > 40) $errors[] = 'Größe darf höchstens 40 Zeichen haben.';
-            if ($payload['price'] <= 0 || $payload['price'] > 999) $errors[] = 'Preis muss zwischen 0,01 und 999 liegen.';
-            if (!in_array($payload['payment_method'], ['bar', 'paypal'], true)) $errors[] = 'Ungültige Zahlungsart.';
-            if (!$state['paypal_enabled'] && $payload['payment_method'] === 'paypal') $errors[] = 'PayPal ist heute nicht verfügbar.';
-            if (mb_strlen($payload['note']) > 200) $errors[] = 'Bemerkung darf höchstens 200 Zeichen haben.';
-            if (empty($_POST['confirmed']) && $action !== 'order_delete') $errors[] = 'Bitte verbindliche Bestellung bestätigen.';
+            $payload = [];
+            if ($action !== 'order_delete') {
+                $payload = [
+                    'nickname' => trim((string) ($_POST['nickname'] ?? '')),
+                    'dish_no' => trim((string) ($_POST['dish_no'] ?? '')),
+                    'dish_name' => trim((string) ($_POST['dish_name'] ?? '')),
+                    'dish_size' => trim((string) ($_POST['dish_size'] ?? '')),
+                    'price' => (float) ($_POST['price'] ?? 0),
+                    'payment_method' => (string) ($_POST['payment_method'] ?? 'bar'),
+                    'note' => trim((string) ($_POST['note'] ?? '')),
+                ];
+
+                if (mb_strlen($payload['nickname']) < 2 || mb_strlen($payload['nickname']) > 40) $errors[] = 'Name muss 2-40 Zeichen haben.';
+                if (mb_strlen($payload['dish_no']) > 20) $errors[] = 'Essensnummer ist zu lang.';
+                if (mb_strlen($payload['dish_name']) < 2 || mb_strlen($payload['dish_name']) > 120) $errors[] = 'Gericht muss 2-120 Zeichen haben.';
+                if (mb_strlen($payload['dish_size']) > 40) $errors[] = 'Größe darf höchstens 40 Zeichen haben.';
+                if ($payload['price'] <= 0 || $payload['price'] > 999) $errors[] = 'Preis muss zwischen 0,01 und 999 liegen.';
+                if (!in_array($payload['payment_method'], ['bar', 'paypal'], true)) $errors[] = 'Ungültige Zahlungsart.';
+                if (!$state['paypal_enabled'] && $payload['payment_method'] === 'paypal') $errors[] = 'PayPal ist heute nicht verfügbar.';
+                if (mb_strlen($payload['note']) > 200) $errors[] = 'Bemerkung darf höchstens 200 Zeichen haben.';
+                if (empty($_POST['confirmed'])) $errors[] = 'Bitte verbindliche Bestellung bestätigen.';
+            }
 
             if ($errors) {
                 $error = implode(' ', $errors);
