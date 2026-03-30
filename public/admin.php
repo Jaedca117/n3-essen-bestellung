@@ -69,20 +69,6 @@ function weekday_labels(): array
     ];
 }
 
-/**
- * @return list<string>
- */
-function time_options(): array
-{
-    $options = [];
-    for ($hour = 0; $hour < 24; $hour++) {
-        for ($minute = 0; $minute < 60; $minute += 5) {
-            $options[] = sprintf('%02d:%02d', $hour, $minute);
-        }
-    }
-    return $options;
-}
-
 function normalized_hhmm(string $value, string $fallback): string
 {
     $trimmed = trim($value);
@@ -246,26 +232,30 @@ $orders = $repo->orders();
 <?php else: ?>
 <section class="card"><h2>Einstellungen</h2>
 <form method="post"><input type="hidden" name="action" value="save_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-<?php $times = time_options(); ?>
-<?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
-<?php $votingValue = normalized_hhmm((string) ($settings['voting_end_time_' . $weekdayKey] ?? ''), '16:00'); ?>
-<?php $orderValue = normalized_hhmm((string) ($settings['order_end_time_' . $weekdayKey] ?? ''), '18:00'); ?>
-<label>Abstimmung endet (<?= e($weekdayLabel) ?>)
-    <select name="voting_end_time_<?= e($weekdayKey) ?>">
-        <?php foreach ($times as $time): ?><option value="<?= e($time) ?>" <?= $time === $votingValue ? 'selected' : '' ?>><?= e($time) ?></option><?php endforeach; ?>
-    </select>
-</label>
-<label>Bestellphase endet (<?= e($weekdayLabel) ?>)
-    <select name="order_end_time_<?= e($weekdayKey) ?>">
-        <?php foreach ($times as $time): ?><option value="<?= e($time) ?>" <?= $time === $orderValue ? 'selected' : '' ?>><?= e($time) ?></option><?php endforeach; ?>
-    </select>
-</label>
-<?php endforeach; ?>
+<p class="muted">Individuelle Zeiten je Wochentag im Format HH:MM.</p>
+<table class="settings-time-table">
+    <thead>
+    <tr>
+        <th>Tag</th>
+        <th>Abstimmung endet</th>
+        <th>Bestellphase endet</th>
+    </tr>
+    </thead>
+    <tbody>
+    <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
+    <?php $votingValue = normalized_hhmm((string) ($settings['voting_end_time_' . $weekdayKey] ?? ''), '16:00'); ?>
+    <?php $orderValue = normalized_hhmm((string) ($settings['order_end_time_' . $weekdayKey] ?? ''), '18:00'); ?>
+    <tr>
+        <th scope="row"><?= e($weekdayLabel) ?></th>
+        <td><input name="voting_end_time_<?= e($weekdayKey) ?>" value="<?= e($votingValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric"></td>
+        <td><input name="order_end_time_<?= e($weekdayKey) ?>" value="<?= e($orderValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric"></td>
+    </tr>
+    <?php endforeach; ?>
+    </tbody>
+</table>
 <?php $resetValue = normalized_hhmm((string) ($settings['daily_reset_time'] ?? ''), '10:30'); ?>
 <label>Täglicher Reset (gilt für alle Tage)
-    <select name="daily_reset_time">
-        <?php foreach ($times as $time): ?><option value="<?= e($time) ?>" <?= $time === $resetValue ? 'selected' : '' ?>><?= e($time) ?></option><?php endforeach; ?>
-    </select>
+    <input name="daily_reset_time" value="<?= e($resetValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric">
 </label>
 <label>PayPal-Link<input name="paypal_link" value="<?= e((string) ($settings['paypal_link'] ?? '')) ?>"></label>
 <label>Tageshinweis<input name="daily_note" maxlength="200" value="<?= e((string) ($settings['daily_note'] ?? '')) ?>"></label>
