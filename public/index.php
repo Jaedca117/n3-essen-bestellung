@@ -287,10 +287,10 @@ foreach ($suppliers as $supplier) {
     <section class="card">
         <h2>Meine Bestellungen</h2>
         <table>
-            <thead><tr><th>Name</th><th>#</th><th>Gericht</th><th>Größe</th><th>Preis</th><th>Zahlung</th><th>Bezahlt</th><th>Hinweis</th></tr></thead>
+            <thead><tr><th>Name</th><th>#</th><th>Gericht</th><th>Größe</th><th>Preis</th><th>Zahlung</th><th>Hinweis</th><th>Bezahlt</th></tr></thead>
             <tbody>
             <?php foreach ($orders as $order): ?>
-                <tr><td><?= e((string) $order['nickname']) ?></td><td><?= e((string) $order['dish_no']) ?></td><td><?= e((string) $order['dish_name']) ?></td><td><?php if (!empty($order['dish_size'])): ?><span class="dish-size"><?= e((string) $order['dish_size']) ?></span><?php else: ?>-<?php endif; ?></td><td><?= number_format((float) $order['price'], 2, ',', '.') ?> €</td><td><?= e(strtoupper((string) $order['payment_method'])) ?></td><td><?= ((int) ($order['is_paid'] ?? 0) === 1) ? 'Ja' : 'Nein' ?></td><td><?= e((string) ($order['note'] ?: '-')) ?></td></tr>
+                <tr><td><?= e((string) $order['nickname']) ?></td><td><?= e((string) $order['dish_no']) ?></td><td><?= e((string) $order['dish_name']) ?></td><td><?php if (!empty($order['dish_size'])): ?><span class="dish-size"><?= e((string) $order['dish_size']) ?></span><?php else: ?>-<?php endif; ?></td><td><?= number_format((float) $order['price'], 2, ',', '.') ?> €</td><td><?= e(strtoupper((string) $order['payment_method'])) ?></td><td><?= e((string) ($order['note'] ?: '-')) ?></td><td><?= ((int) ($order['is_paid'] ?? 0) === 1) ? 'Ja' : 'Nein' ?></td></tr>
                 <?php if ($state['phase'] === 'ordering'): ?>
                     <tr><td colspan="8"><a href="?edit_id=<?= (int) $order['id'] ?>">Diese Bestellung bearbeiten/löschen</a></td></tr>
                 <?php endif; ?>
