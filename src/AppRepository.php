@@ -156,6 +156,8 @@ final class AppRepository
             ("order_end_time_saturday", "18:00"),
             ("order_end_time_sunday", "18:00"),
             ("paypal_link", ""),
+            ("paypal_links", "[]"),
+            ("paypal_link_active_id", ""),
             ("daily_note", ""),
             ("header_subtitle", ""),
             ("order_closed", "0"),

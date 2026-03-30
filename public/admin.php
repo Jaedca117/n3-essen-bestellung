@@ -81,11 +81,51 @@ function normalized_hhmm(string $value, string $fallback): string
     return substr($trimmed, 0, 5);
 }
 
+/**
+ * @return list<array{id:string,name:string,url:string}>
+ */
+function paypal_link_options(array $settings): array
+{
+    $raw = (string) ($settings['paypal_links'] ?? '');
+    if ($raw === '') {
+        $legacyLink = trim((string) ($settings['paypal_link'] ?? ''));
+        if ($legacyLink === '') {
+            return [];
+        }
+        return [[
+            'id' => 'legacy',
+            'name' => 'Standard',
+            'url' => $legacyLink,
+        ]];
+    }
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        return [];
+    }
+
+    $result = [];
+    foreach ($decoded as $entry) {
+        if (!is_array($entry)) {
+            continue;
+        }
+        $id = trim((string) ($entry['id'] ?? ''));
+        $name = trim((string) ($entry['name'] ?? ''));
+        $url = trim((string) ($entry['url'] ?? ''));
+        if ($id === '' || $name === '' || $url === '') {
+            continue;
+        }
+        $result[] = ['id' => $id, 'name' => $name, 'url' => $url];
+    }
+
+    return $result;
+}
+
 if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_settings')) {
     if (!verify_csrf_token($_POST['csrf'] ?? null)) {
         $error = 'Ungültiges CSRF-Token.';
     } else {
-        $allowed = ['daily_reset_time','paypal_link','daily_note','header_subtitle','order_closed','reset_daily_note','manual_winner_supplier_id'];
+        $allowed = ['daily_reset_time','daily_note','header_subtitle','order_closed','reset_daily_note','manual_winner_supplier_id'];
         foreach (weekday_labels() as $weekdayKey => $_) {
             $allowed[] = 'voting_end_time_' . $weekdayKey;
             $allowed[] = 'order_end_time_' . $weekdayKey;
@@ -103,6 +143,42 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             }
             $repo->saveSetting($key, $value);
         }
+
+        $paypalLinkIds = $_POST['paypal_link_ids'] ?? [];
+        $paypalLinkNames = $_POST['paypal_link_names'] ?? [];
+        $paypalLinkUrls = $_POST['paypal_link_urls'] ?? [];
+        $paypalLinks = [];
+        if (is_array($paypalLinkIds) && is_array($paypalLinkNames) && is_array($paypalLinkUrls)) {
+            foreach ($paypalLinkNames as $index => $nameValue) {
+                $name = trim((string) $nameValue);
+                $url = trim((string) ($paypalLinkUrls[$index] ?? ''));
+                if ($name === '' || $url === '') {
+                    continue;
+                }
+                $id = trim((string) ($paypalLinkIds[$index] ?? ''));
+                if ($id === '') {
+                    $id = 'pp_' . substr(sha1($name . '|' . $url), 0, 12);
+                }
+                $paypalLinks[] = ['id' => $id, 'name' => $name, 'url' => $url];
+            }
+        }
+
+        $activePaypalId = trim((string) ($_POST['paypal_link_active_id'] ?? ''));
+        $activePaypalUrl = '';
+        foreach ($paypalLinks as $entry) {
+            if ($entry['id'] === $activePaypalId) {
+                $activePaypalUrl = $entry['url'];
+                break;
+            }
+        }
+        if ($activePaypalUrl === '' && $paypalLinks !== []) {
+            $activePaypalId = $paypalLinks[0]['id'];
+            $activePaypalUrl = $paypalLinks[0]['url'];
+        }
+        $repo->saveSetting('paypal_links', json_encode($paypalLinks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $repo->saveSetting('paypal_link_active_id', $activePaypalId);
+        $repo->saveSetting('paypal_link', $activePaypalUrl);
+
         $message = 'Einstellungen gespeichert.';
         $state = $service->runtimeState();
     }
@@ -218,6 +294,8 @@ $settings = $repo->getSettings();
 $categories = $repo->categories();
 $suppliers = $repo->allSuppliers();
 $orders = $repo->orders();
+$paypalLinks = paypal_link_options($settings);
+$activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
 ?>
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin</title><link rel="stylesheet" href="style.css"></head>
@@ -257,7 +335,30 @@ $orders = $repo->orders();
 <label>Täglicher Reset (gilt für alle Tage)
     <input name="daily_reset_time" value="<?= e($resetValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric">
 </label>
-<label>PayPal-Link<input name="paypal_link" value="<?= e((string) ($settings['paypal_link'] ?? '')) ?>"></label>
+<fieldset>
+    <legend>PayPal-Links</legend>
+    <p class="muted">Mehrere Links möglich. Format: Name + PayPal-Link.</p>
+    <?php foreach ($paypalLinks as $entry): ?>
+    <div class="inline">
+        <input type="hidden" name="paypal_link_ids[]" value="<?= e($entry['id']) ?>">
+        <input name="paypal_link_names[]" maxlength="80" placeholder="Name" value="<?= e($entry['name']) ?>">
+        <input name="paypal_link_urls[]" maxlength="255" placeholder="https://paypal.me/..." value="<?= e($entry['url']) ?>">
+    </div>
+    <?php endforeach; ?>
+    <div class="inline">
+        <input type="hidden" name="paypal_link_ids[]" value="">
+        <input name="paypal_link_names[]" maxlength="80" placeholder="Name">
+        <input name="paypal_link_urls[]" maxlength="255" placeholder="https://paypal.me/...">
+    </div>
+    <label>Aktiver PayPal-Link
+        <select name="paypal_link_active_id">
+            <option value="">-- Kein Link --</option>
+            <?php foreach ($paypalLinks as $entry): ?>
+                <option value="<?= e($entry['id']) ?>" <?= ($activePaypalId === $entry['id']) ? 'selected' : '' ?>><?= e($entry['name']) ?></option>
+            <?php endforeach; ?>
+        </select>
+    </label>
+</fieldset>
 <label>Tageshinweis<input name="daily_note" maxlength="200" value="<?= e((string) ($settings['daily_note'] ?? '')) ?>"></label>
 <label>Zusätzlicher Text unter Website-Titel<input name="header_subtitle" maxlength="200" value="<?= e((string) ($settings['header_subtitle'] ?? '')) ?>"></label>
 <label>Manueller Gewinner (Lieferanten-ID)<input name="manual_winner_supplier_id" value="<?= e((string) ($settings['manual_winner_supplier_id'] ?? '')) ?>"></label>

@@ -9,6 +9,40 @@ $repo = new AppRepository($pdo, (string) ($config['db']['table_prefix'] ?? 'n3_e
 $service = new AppService($repo);
 $state = $service->runtimeState();
 
+/**
+ * @return array{id:string,name:string,url:string}|null
+ */
+function active_paypal_link(array $settings): ?array
+{
+    $decoded = json_decode((string) ($settings['paypal_links'] ?? ''), true);
+    $activeId = trim((string) ($settings['paypal_link_active_id'] ?? ''));
+    if (is_array($decoded)) {
+        foreach ($decoded as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            $id = trim((string) ($entry['id'] ?? ''));
+            $name = trim((string) ($entry['name'] ?? ''));
+            $url = trim((string) ($entry['url'] ?? ''));
+            if ($id === '' || $name === '' || $url === '') {
+                continue;
+            }
+            if ($activeId !== '' && $id === $activeId) {
+                return ['id' => $id, 'name' => $name, 'url' => $url];
+            }
+            if ($activeId === '') {
+                return ['id' => $id, 'name' => $name, 'url' => $url];
+            }
+        }
+    }
+
+    $legacyLink = trim((string) ($settings['paypal_link'] ?? ''));
+    if ($legacyLink !== '') {
+        return ['id' => 'legacy', 'name' => 'PayPal', 'url' => $legacyLink];
+    }
+    return null;
+}
+
 $message = null;
 $error = null;
 $editOrder = null;
@@ -118,6 +152,7 @@ $voteResults = $repo->voteResults();
 $winner = $service->winner($settings);
 $orders = $repo->ordersByOwnerToken((string) $_COOKIE['vote_token']);
 $totals = $repo->orderTotalsByOwnerToken((string) $_COOKIE['vote_token']);
+$activePaypalLink = active_paypal_link($settings);
 
 $groupedSuppliers = [];
 foreach ($suppliers as $supplier) {
@@ -243,7 +278,7 @@ foreach ($suppliers as $supplier) {
         </table>
         <?php if (!$orders): ?><p class="muted">Du hast noch keine Bestellung erfasst.</p><?php endif; ?>
         <p><strong>Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> € · <strong>Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>
-        <?php if (!empty($settings['paypal_link']) && $state['paypal_enabled']): ?><p><a href="<?= e((string) $settings['paypal_link']) ?>" target="_blank" rel="noopener">PayPal-Link des Verantwortlichen</a></p><?php endif; ?>
+        <?php if ($activePaypalLink && $state['paypal_enabled']): ?><p><a href="<?= e($activePaypalLink['url']) ?>" target="_blank" rel="noopener">PayPal-Link: <?= e($activePaypalLink['name']) ?></a></p><?php endif; ?>
     </section>
     <p class="admin-link-bottom"><a href="admin.php" class="admin-link-button">Adminbereich</a></p>
 </main>
