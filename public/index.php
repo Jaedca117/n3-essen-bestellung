@@ -289,7 +289,7 @@ foreach ($suppliers as $supplier) {
     <div class="admin-link-bottom">
         <a href="admin.php" class="admin-link-button">Adminbereich</a>
         <details class="privacy-hint">
-            <summary class="admin-link-button">Datenschutzhinweis</summary>
+            <summary><span class="admin-link-button">Datenschutzhinweis</span></summary>
             <p>Die hier eingetragenen Daten können nur von den Stammtisch-/Eventverantwortlichen eingesehen werden. Diese Daten löschen sich täglich um <?= e($dailyResetTime) ?> Uhr.</p>
         </details>
     </div>

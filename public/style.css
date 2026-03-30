@@ -136,8 +136,14 @@ th{color:#dbe4ff;background:#171f3b}
   list-style:none;
   cursor:pointer;
 }
+.privacy-hint summary::marker{
+  display:none;
+}
 .privacy-hint summary::-webkit-details-marker{
   display:none;
+}
+.privacy-hint summary .admin-link-button{
+  pointer-events:none;
 }
 .privacy-hint p{
   margin:.5rem 0 0;
