@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 return [
     'app_name' => 'Vereins-Essen',
+    'app_logo' => 'assets/vereinslogo.png', // Optional: Pfad relativ zu /public
     'timezone' => 'Europe/Berlin',
     'db' => [
         'host' => '127.0.0.1',

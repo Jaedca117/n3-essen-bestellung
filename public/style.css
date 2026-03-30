@@ -35,6 +35,13 @@ body{margin:0;min-height:100vh}
     linear-gradient(160deg, rgba(28,38,66,.94), rgba(20,27,49,.94));
 }
 
+.hero-logo{
+  display:block;
+  max-height:90px;
+  width:auto;
+  margin:0 0 .75rem;
+}
+
 h1,h2,h3{margin:.2rem 0 .8rem;color:#fff;letter-spacing:.2px}
 
 a{color:#9bb3ff;text-underline-offset:2px}
