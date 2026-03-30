@@ -114,6 +114,10 @@ cp config.sample.php config.php
 
 Danach in `config.php` die Zugangsdaten für MySQL/MariaDB eintragen.
 
+Optional kannst du ein Vereinslogo auf der Startseite anzeigen:
+- Lege die Datei z. B. unter `public/assets/vereinslogo.png` ab.
+- Setze in `config.php` den Key `app_logo` auf den relativen Pfad, z. B. `assets/vereinslogo.png`.
+
 ### 5) Apache VirtualHost einrichten
 
 Datei anlegen: `/etc/apache2/sites-available/essenbestellung.conf`

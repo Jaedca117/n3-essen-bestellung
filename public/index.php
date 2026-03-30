@@ -179,6 +179,9 @@ foreach ($suppliers as $supplier) {
 <body>
 <main class="container">
     <header class="hero">
+        <?php if (!empty($config['app_logo'])): ?>
+            <img class="hero-logo" src="<?= e((string) $config['app_logo']) ?>" alt="Vereinslogo">
+        <?php endif; ?>
         <h1><?= e((string) ($config['app_name'] ?? 'Vereins-Essen')) ?></h1>
         <?php if (!empty($settings['header_subtitle'])): ?><p><?= e((string) $settings['header_subtitle']) ?></p><?php endif; ?>
         <p>Phase: <strong><?= $state['phase'] === 'voting' ? 'Abstimmung offen' : ($state['phase'] === 'ordering' ? 'Bestellphase offen' : 'Geschlossen') ?></strong></p>
