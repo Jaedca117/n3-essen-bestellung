@@ -139,7 +139,6 @@ foreach ($suppliers as $supplier) {
         <p>Phase: <strong><?= $state['phase'] === 'voting' ? 'Abstimmung offen' : ($state['phase'] === 'ordering' ? 'Bestellphase offen' : 'Geschlossen') ?></strong></p>
         <p>Abstimmung bis <?= e($state['voting_end']->format('H:i')) ?> Uhr · Bestellung bis <?= e($state['order_end']->format('H:i')) ?> Uhr</p>
         <?php if (!empty($settings['daily_note'])): ?><p class="notice info"><strong>Tageshinweis:</strong> <?= e((string) $settings['daily_note']) ?></p><?php endif; ?>
-        <p><a href="admin.php">Admin</a></p>
     </header>
 
     <?php if ($message): ?><p class="notice success"><?= e($message) ?></p><?php endif; ?>
@@ -245,6 +244,7 @@ foreach ($suppliers as $supplier) {
         <p><strong>Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> € · <strong>Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>
         <?php if (!empty($settings['paypal_link']) && $state['paypal_enabled']): ?><p><a href="<?= e((string) $settings['paypal_link']) ?>" target="_blank" rel="noopener">PayPal-Link des Verantwortlichen</a></p><?php endif; ?>
     </section>
+    <p class="admin-link-bottom"><a href="admin.php" class="admin-link-button">Adminbereich</a></p>
 </main>
 </body>
 </html>
