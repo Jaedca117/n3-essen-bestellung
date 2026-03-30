@@ -286,12 +286,14 @@ foreach ($suppliers as $supplier) {
         <p><strong>Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> € · <strong>Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>
         <?php if ($activePaypalLink && $state['paypal_enabled']): ?><p><a href="<?= e($activePaypalLink['url']) ?>" target="_blank" rel="noopener">PayPal-Link: <?= e($activePaypalLink['name']) ?></a></p><?php endif; ?>
     </section>
+    <section id="datenschutz" class="card privacy-card">
+        <h2>Datenschutzhinweis</h2>
+        <p>Die hier eingetragenen Daten können nur von den Stammtisch-/Eventverantwortlichen eingesehen werden. Diese Daten löschen sich täglich um <?= e($dailyResetTime) ?> Uhr.</p>
+    </section>
+
     <div class="admin-link-bottom">
         <a href="admin.php" class="admin-link-button">Adminbereich</a>
-        <details class="privacy-hint">
-            <summary><span class="admin-link-button">Datenschutzhinweis</span></summary>
-            <p>Die hier eingetragenen Daten können nur von den Stammtisch-/Eventverantwortlichen eingesehen werden. Diese Daten löschen sich täglich um <?= e($dailyResetTime) ?> Uhr.</p>
-        </details>
+        <a href="#datenschutz" class="admin-link-button">Datenschutzhinweis</a>
     </div>
 </main>
 </body>

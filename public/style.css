@@ -128,30 +128,8 @@ th{color:#dbe4ff;background:#171f3b}
   border-color:var(--accent);
   box-shadow:0 0 0 3px rgba(255,138,0,.25);
 }
-.privacy-hint{
-  text-align:left;
-  max-width:min(560px,100%);
-}
-.privacy-hint summary{
-  list-style:none;
-  cursor:pointer;
-}
-.privacy-hint summary::marker{
-  display:none;
-}
-.privacy-hint summary::-webkit-details-marker{
-  display:none;
-}
-.privacy-hint summary .admin-link-button{
-  pointer-events:none;
-}
-.privacy-hint p{
-  margin:.5rem 0 0;
-  padding:.72rem .9rem;
-  border:1px solid #3a4469;
-  border-radius:10px;
-  background:#0f152b;
-  color:#f3f6ff;
+.privacy-card p{
+  margin:0;
 }
 
 .admin-sections{display:flex;gap:.6rem;flex-wrap:wrap}
