@@ -26,6 +26,8 @@ if (isset($_GET['edit']) && preg_match('/^[a-f0-9]{32}$/', (string) $_GET['edit'
     }
 }
 
+$hasVoted = $repo->hasVoteForToken((string) $_COOKIE['vote_token']);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
 
@@ -39,8 +41,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ids = array_map(static fn($r) => (int) $r['id'], $repo->suppliers());
             if (!in_array($supplierId, $ids, true)) {
                 $error = 'Ungültiger Lieferant.';
+            } elseif ($hasVoted) {
+                $error = 'Du hast heute bereits abgestimmt.';
             } else {
                 $repo->recordVote((string) $_COOKIE['vote_token'], $supplierId);
+                $hasVoted = true;
                 $message = 'Danke! Deine Stimme wurde gespeichert.';
             }
         }
@@ -98,6 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $state = $service->runtimeState();
+    $hasVoted = $repo->hasVoteForToken((string) $_COOKIE['vote_token']);
 }
 
 $settings = $state['settings'];
@@ -133,7 +139,7 @@ foreach ($suppliers as $supplier) {
     <?php if ($message): ?><p class="notice success"><?= e($message) ?></p><?php endif; ?>
     <?php if ($error): ?><p class="notice error"><?= e($error) ?></p><?php endif; ?>
 
-    <?php if ($state['phase'] === 'voting'): ?>
+    <?php if ($state['phase'] === 'voting' && !$hasVoted): ?>
         <section class="card">
             <h2>1) Abstimmen</h2>
             <?php foreach ($groupedSuppliers as $category => $items): ?>
@@ -151,6 +157,13 @@ foreach ($suppliers as $supplier) {
                     <?php endforeach; ?>
                 </div>
             <?php endforeach; ?>
+        </section>
+    <?php endif; ?>
+
+    <?php if ($state['phase'] === 'voting' && $hasVoted): ?>
+        <section class="card">
+            <h2>1) Abstimmen</h2>
+            <p class="notice success">Vielen Dank für deine Stimme! Du hast heute bereits abgestimmt – unten siehst du das aktuelle Zwischenergebnis.</p>
         </section>
     <?php endif; ?>
 
