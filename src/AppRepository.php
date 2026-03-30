@@ -49,6 +49,23 @@ final class AppRepository
         return $value !== false ? strtolower((string) $value) : null;
     }
 
+    private function indexExists(string $table, string $indexName): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT 1
+             FROM information_schema.STATISTICS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = :table
+               AND INDEX_NAME = :index
+             LIMIT 1'
+        );
+        $stmt->execute([
+            ':table' => $this->prefix . $table,
+            ':index' => $indexName,
+        ]);
+        return (bool) $stmt->fetchColumn();
+    }
+
     private function ensureSchemaInitialized(): void
     {
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('settings') . ' (
@@ -90,10 +107,21 @@ final class AppRepository
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY (id),
-            UNIQUE KEY uniq_vote_token (vote_token),
+            UNIQUE KEY uniq_vote_token_supplier (vote_token, supplier_id),
+            KEY idx_vote_token (vote_token),
             KEY idx_supplier_id (supplier_id),
             FOREIGN KEY (supplier_id) REFERENCES ' . $this->t('suppliers') . ' (id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+        if ($this->indexExists('votes', 'uniq_vote_token')) {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('votes') . ' DROP INDEX uniq_vote_token');
+        }
+        if (!$this->indexExists('votes', 'uniq_vote_token_supplier')) {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('votes') . ' ADD UNIQUE KEY uniq_vote_token_supplier (vote_token, supplier_id)');
+        }
+        if (!$this->indexExists('votes', 'idx_vote_token')) {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('votes') . ' ADD KEY idx_vote_token (vote_token)');
+        }
 
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('orders') . ' (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -320,16 +348,30 @@ final class AppRepository
 
     public function hasVoteForToken(string $token): bool
     {
-        $stmt = $this->pdo->prepare('SELECT 1 FROM ' . $this->t('votes') . ' WHERE vote_token=:t LIMIT 1');
+        $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM ' . $this->t('votes') . ' WHERE vote_token=:t');
         $stmt->execute([':t' => $token]);
+        return (int) $stmt->fetchColumn() >= 2;
+    }
+
+    public function voteCountForToken(string $token): int
+    {
+        $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM ' . $this->t('votes') . ' WHERE vote_token=:t');
+        $stmt->execute([':t' => $token]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    public function hasVoteForTokenAndSupplier(string $token, int $supplierId): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT 1 FROM ' . $this->t('votes') . ' WHERE vote_token=:t AND supplier_id=:s LIMIT 1');
+        $stmt->execute([':t' => $token, ':s' => $supplierId]);
         return (bool) $stmt->fetchColumn();
     }
 
     public function recordVote(string $token, int $supplierId): void
     {
         $sql = 'INSERT INTO ' . $this->t('votes') . ' (vote_token, supplier_id, created_at, updated_at)
-                VALUES (:t,:s,NOW(),NOW()) ON DUPLICATE KEY UPDATE supplier_id=VALUES(supplier_id), updated_at=NOW()';
-        $this->pdo->prepare($sql)->execute([':t'=>$token, ':s'=>$supplierId]);
+                VALUES (:t,:s,NOW(),NOW())';
+        $this->pdo->prepare($sql)->execute([':t' => $token, ':s' => $supplierId]);
     }
 
     public function voteResults(): array
