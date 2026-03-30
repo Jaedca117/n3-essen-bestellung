@@ -298,7 +298,6 @@ foreach ($suppliers as $supplier) {
 
     <div class="admin-link-bottom">
         <a href="admin.php" class="admin-link-button">Adminbereich</a>
-        <a href="#datenschutz" class="admin-link-button">Datenschutzhinweis</a>
     </div>
 </main>
 </body>
