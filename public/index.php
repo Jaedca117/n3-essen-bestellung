@@ -186,10 +186,12 @@ foreach ($suppliers as $supplier) {
 <body>
 <main class="container">
     <header class="hero">
-        <?php if (!empty($config['app_logo'])): ?>
-            <img class="hero-logo" src="<?= e((string) $config['app_logo']) ?>" alt="Vereinslogo">
-        <?php endif; ?>
-        <h1><?= e((string) ($config['app_name'] ?? 'Vereins-Essen')) ?></h1>
+        <div class="hero-head">
+            <?php if (!empty($config['app_logo'])): ?>
+                <img class="hero-logo" src="<?= e((string) $config['app_logo']) ?>" alt="Vereinslogo">
+            <?php endif; ?>
+            <h1><?= e((string) ($config['app_name'] ?? 'Vereins-Essen')) ?></h1>
+        </div>
         <?php if (!empty($settings['header_subtitle'])): ?><p><?= e((string) $settings['header_subtitle']) ?></p><?php endif; ?>
         <p>Phase: <strong><?= $state['phase'] === 'voting' ? 'Abstimmung offen' : ($state['phase'] === 'ordering' ? 'Bestellphase offen' : 'Geschlossen') ?></strong></p>
         <p>Abstimmung bis <?= e($state['voting_end']->format('H:i')) ?> Uhr · Bestellung bis <?= e($state['order_end']->format('H:i')) ?> Uhr</p>
