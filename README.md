@@ -29,6 +29,11 @@ Warum passend:
 - `sql/schema.sql` – Tabellen + Standarddaten
 - `config.sample.php` – Konfigurationsvorlage
 
+## Anleitungen
+
+- Für Enduser: `docs/anleitung-enduser.md`
+- Für Orgamitglieder: `docs/anleitung-orgamitglieder.md`
+
 ## Installation (Webspace)
 
 1. Dateien hochladen.
