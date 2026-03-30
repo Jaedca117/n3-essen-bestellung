@@ -4,6 +4,16 @@ declare(strict_types=1);
 
 final class AppService
 {
+    private const WEEKDAY_KEYS = [
+        1 => 'monday',
+        2 => 'tuesday',
+        3 => 'wednesday',
+        4 => 'thursday',
+        5 => 'friday',
+        6 => 'saturday',
+        7 => 'sunday',
+    ];
+
     public function __construct(private readonly AppRepository $repo)
     {
     }
@@ -16,8 +26,9 @@ final class AppService
 
         $now = new DateTimeImmutable('now');
         $today = $now->format('Y-m-d');
-        $votingEnd = new DateTimeImmutable($today . ' ' . ($settings['voting_end_time'] ?? '16:00:00'));
-        $orderEnd = new DateTimeImmutable($today . ' ' . ($settings['order_end_time'] ?? '18:00:00'));
+        $weekday = self::WEEKDAY_KEYS[(int) $now->format('N')] ?? 'monday';
+        $votingEnd = new DateTimeImmutable($today . ' ' . $this->timeSettingForDay($settings, 'voting_end_time', $weekday, '16:00:00'));
+        $orderEnd = new DateTimeImmutable($today . ' ' . $this->timeSettingForDay($settings, 'order_end_time', $weekday, '18:00:00'));
 
         $orderClosed = ($settings['order_closed'] ?? '0') === '1';
 
@@ -80,5 +91,19 @@ final class AppService
             }
         }
         return $this->repo->winner();
+    }
+
+    private function timeSettingForDay(array $settings, string $baseKey, string $weekday, string $fallback): string
+    {
+        $dayValue = trim((string) ($settings[$baseKey . '_' . $weekday] ?? ''));
+        if ($dayValue !== '') {
+            return strlen($dayValue) === 5 ? ($dayValue . ':00') : $dayValue;
+        }
+
+        $value = trim((string) ($settings[$baseKey] ?? $fallback));
+        if ($value === '') {
+            return $fallback;
+        }
+        return strlen($value) === 5 ? ($value . ':00') : $value;
     }
 }
