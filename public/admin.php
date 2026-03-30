@@ -137,22 +137,31 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
         $dailyNote = trim((string) ($_POST['daily_note'] ?? ''));
         $repo->saveSetting('daily_note', $dailyNote);
         $repo->saveSetting('order_closed', isset($_POST['order_closed']) ? '1' : '0');
-
-        $activePaypalId = trim((string) ($_POST['paypal_link_active_id'] ?? ''));
-        $activePaypalUrl = '';
-        foreach (paypal_link_options($repo->getSettings()) as $entry) {
-            if ($entry['id'] === $activePaypalId) {
-                $activePaypalUrl = $entry['url'];
-                break;
-            }
-        }
-        if ($activePaypalId !== '' && $activePaypalUrl === '') {
-            $error = 'Aktiver PayPal-Link ist ungültig.';
+        $manualWinnerSupplierId = trim((string) ($_POST['manual_winner_supplier_id'] ?? ''));
+        $supplierIds = array_map(static fn(array $supplier): string => (string) $supplier['id'], $repo->allSuppliers());
+        if ($manualWinnerSupplierId !== '' && !in_array($manualWinnerSupplierId, $supplierIds, true)) {
+            $error = 'Manueller Gewinner ist ungültig.';
         } else {
-            $repo->saveSetting('paypal_link_active_id', $activePaypalId);
-            $repo->saveSetting('paypal_link', $activePaypalUrl);
-            $message = 'Bereich "Aktuelle Bestellung" gespeichert.';
-            $state = $service->runtimeState();
+            $repo->saveSetting('manual_winner_supplier_id', $manualWinnerSupplierId);
+        }
+
+        if ($error === null) {
+            $activePaypalId = trim((string) ($_POST['paypal_link_active_id'] ?? ''));
+            $activePaypalUrl = '';
+            foreach (paypal_link_options($repo->getSettings()) as $entry) {
+                if ($entry['id'] === $activePaypalId) {
+                    $activePaypalUrl = $entry['url'];
+                    break;
+                }
+            }
+            if ($activePaypalId !== '' && $activePaypalUrl === '') {
+                $error = 'Aktiver PayPal-Link ist ungültig.';
+            } else {
+                $repo->saveSetting('paypal_link_active_id', $activePaypalId);
+                $repo->saveSetting('paypal_link', $activePaypalUrl);
+                $message = 'Bereich "Aktuelle Bestellung" gespeichert.';
+                $state = $service->runtimeState();
+            }
         }
     }
 }
@@ -362,6 +371,16 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
 </label>
 <p class="muted">Druckansicht: <a href="print.php" target="_blank" rel="noopener">print.php öffnen</a></p>
 <label>Tageshinweis<input name="daily_note" maxlength="200" value="<?= e((string) ($settings['daily_note'] ?? '')) ?>"></label>
+<label>Manueller Gewinner
+    <select name="manual_winner_supplier_id">
+        <option value="">-- Automatisch per Abstimmung --</option>
+        <?php foreach ($suppliers as $supplier): ?>
+            <option value="<?= (int) $supplier['id'] ?>" <?= ((string) ($settings['manual_winner_supplier_id'] ?? '') === (string) $supplier['id']) ? 'selected' : '' ?>>
+                #<?= (int) $supplier['id'] ?> - <?= e((string) $supplier['name']) ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+</label>
 <label class="check"><input type="checkbox" name="order_closed" <?= (($settings['order_closed'] ?? '0') === '1') ? 'checked' : '' ?>> Bestellung abgeschlossen</label>
 <button>Speichern</button></form>
 </section>
@@ -464,7 +483,6 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
     </div>
 </fieldset>
 <label>Zusätzlicher Text unter Website-Titel<input name="header_subtitle" maxlength="200" value="<?= e((string) ($settings['header_subtitle'] ?? '')) ?>"></label>
-<label>Manueller Gewinner (Lieferanten-ID)<input name="manual_winner_supplier_id" value="<?= e((string) ($settings['manual_winner_supplier_id'] ?? '')) ?>"></label>
 <label class="check"><input type="checkbox" name="reset_daily_note" <?= (($settings['reset_daily_note'] ?? '1') === '1') ? 'checked' : '' ?>> Tageshinweis beim Reset löschen</label>
 <button>Speichern</button></form>
 </section>
