@@ -147,6 +147,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $settings = $state['settings'];
+$dailyResetTime = trim((string) ($settings['daily_reset_time'] ?? '10:30:00'));
+if (preg_match('/^\d{2}:\d{2}/', $dailyResetTime) === 1) {
+    $dailyResetTime = substr($dailyResetTime, 0, 5);
+} else {
+    $dailyResetTime = '10:30';
+}
 $suppliers = $repo->suppliers();
 $voteResults = $repo->voteResults();
 $winner = $service->winner($settings);
@@ -280,7 +286,13 @@ foreach ($suppliers as $supplier) {
         <p><strong>Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> € · <strong>Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>
         <?php if ($activePaypalLink && $state['paypal_enabled']): ?><p><a href="<?= e($activePaypalLink['url']) ?>" target="_blank" rel="noopener">PayPal-Link: <?= e($activePaypalLink['name']) ?></a></p><?php endif; ?>
     </section>
-    <p class="admin-link-bottom"><a href="admin.php" class="admin-link-button">Adminbereich</a></p>
+    <div class="admin-link-bottom">
+        <a href="admin.php" class="admin-link-button">Adminbereich</a>
+        <details class="privacy-hint">
+            <summary class="admin-link-button">Datenschutzhinweis</summary>
+            <p>Die hier eingetragenen Daten können nur von den Stammtisch-/Eventverantwortlichen eingesehen werden. Diese Daten löschen sich täglich um <?= e($dailyResetTime) ?> Uhr.</p>
+        </details>
+    </div>
 </main>
 </body>
 </html>
