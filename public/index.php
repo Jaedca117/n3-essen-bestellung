@@ -197,7 +197,6 @@ foreach ($suppliers as $supplier) {
                             <input type="hidden" name="action" value="vote">
                             <input type="hidden" name="supplier_id" value="<?= (int) $supplier['id'] ?>">
                             <strong><?= e((string) $supplier['name']) ?></strong>
-                            <small><?= e((string) $supplier['phone']) ?></small>
                             <a href="<?= e((string) $supplier['menu_url']) ?>" target="_blank" rel="noopener">Speisekarte</a>
                             <button type="submit">Dafür stimmen</button>
                         </form>
