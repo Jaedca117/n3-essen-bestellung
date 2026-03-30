@@ -101,3 +101,20 @@ th{color:#dbe4ff;background:#171f3b}
 
 
 .dish-size{display:inline-block;padding:.2rem .5rem;border-radius:999px;background:rgba(255,138,0,.22);border:1px solid rgba(255,138,0,.55);color:#ffd9a1;font-size:.82rem;font-weight:600}
+
+.admin-link-bottom{margin:1.2rem 0 0;text-align:center}
+.admin-link-button{
+  display:inline-block;
+  padding:.72rem 1.1rem;
+  border-radius:10px;
+  border:1px solid #3a4469;
+  background:#0f152b;
+  color:#f3f6ff;
+  text-decoration:none;
+  font-weight:700;
+}
+.admin-link-button:hover{
+  color:#fff;
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(255,138,0,.25);
+}
