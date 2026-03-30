@@ -65,7 +65,8 @@ if (isset($_GET['edit_id'])) {
     }
 }
 
-$hasVoted = $repo->hasVoteForToken((string) $_COOKIE['vote_token']);
+$voteCount = $repo->voteCountForToken((string) $_COOKIE['vote_token']);
+$hasVoted = $voteCount >= 2;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
@@ -80,12 +81,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ids = array_map(static fn($r) => (int) $r['id'], $repo->suppliers());
             if (!in_array($supplierId, $ids, true)) {
                 $error = 'Ungültiger Lieferant.';
+            } elseif ($repo->hasVoteForTokenAndSupplier((string) $_COOKIE['vote_token'], $supplierId)) {
+                $error = 'Du hast für diesen Lieferanten bereits abgestimmt.';
             } elseif ($hasVoted) {
-                $error = 'Du hast heute bereits abgestimmt.';
+                $error = 'Du hast heute bereits 2 Stimmen abgegeben.';
             } else {
                 $repo->recordVote((string) $_COOKIE['vote_token'], $supplierId);
-                $hasVoted = true;
-                $message = 'Danke! Deine Stimme wurde gespeichert.';
+                $voteCount++;
+                $hasVoted = $voteCount >= 2;
+                $message = $hasVoted
+                    ? 'Danke! Deine zweite Stimme wurde gespeichert.'
+                    : 'Danke! Deine Stimme wurde gespeichert. Du kannst noch eine zweite Stimme abgeben.';
             }
         }
     }
@@ -146,7 +152,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $state = $service->runtimeState();
-    $hasVoted = $repo->hasVoteForToken((string) $_COOKIE['vote_token']);
+    $voteCount = $repo->voteCountForToken((string) $_COOKIE['vote_token']);
+    $hasVoted = $voteCount >= 2;
 }
 
 $settings = $state['settings'];
@@ -195,6 +202,7 @@ foreach ($suppliers as $supplier) {
     <?php if ($state['phase'] === 'voting' && !$hasVoted): ?>
         <section class="card">
             <h2>Abstimmen</h2>
+            <p class="muted">Du hast <?= (int) $voteCount ?> von 2 Stimmen abgegeben.</p>
             <?php foreach ($groupedSuppliers as $category => $items): ?>
                 <h3><?= e((string) $category) ?></h3>
                 <div class="supplier-grid">
@@ -215,7 +223,7 @@ foreach ($suppliers as $supplier) {
     <?php if ($state['phase'] === 'voting' && $hasVoted): ?>
         <section class="card">
             <h2>Abstimmen</h2>
-            <p class="notice success">Vielen Dank für deine Stimme! Du hast heute bereits abgestimmt – unten siehst du das aktuelle Zwischenergebnis.</p>
+            <p class="notice success">Vielen Dank für deine Stimmen! Du hast heute bereits 2 Stimmen abgegeben – unten siehst du das aktuelle Zwischenergebnis.</p>
         </section>
     <?php endif; ?>
 

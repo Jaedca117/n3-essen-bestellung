@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS `n3_essen_votes` (
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_vote_token` (`vote_token`),
+  UNIQUE KEY `uniq_vote_token_supplier` (`vote_token`, `supplier_id`),
+  KEY `idx_vote_token` (`vote_token`),
   KEY `idx_supplier_id` (`supplier_id`),
   CONSTRAINT `fk_n3_essen_votes_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `n3_essen_suppliers` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
