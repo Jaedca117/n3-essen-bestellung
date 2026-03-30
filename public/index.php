@@ -19,10 +19,15 @@ if (empty($_COOKIE['vote_token'])) {
     $_COOKIE['vote_token'] = $voteToken;
 }
 
-if (isset($_GET['edit']) && preg_match('/^[a-f0-9]{32}$/', (string) $_GET['edit'])) {
-    $editOrder = $repo->findOrderByToken((string) $_GET['edit']);
-    if (!$editOrder) {
-        $error = 'Ungültiger Bearbeitungs-Token.';
+if (isset($_GET['edit_id'])) {
+    $editId = (int) $_GET['edit_id'];
+    if ($editId <= 0) {
+        $error = 'Ungültige Bestellung.';
+    } else {
+        $editOrder = $repo->findOrderByIdAndOwnerToken($editId, (string) $_COOKIE['vote_token']);
+        if (!$editOrder) {
+            $error = 'Bestellung nicht gefunden oder kein Zugriff.';
+        }
     }
 }
 
@@ -57,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (!$service->canProceed($action === 'order_create' ? 'order_create' : 'order_update', client_ip())) {
             $error = 'Zu viele Aktionen in kurzer Zeit. Bitte kurz warten.';
         } else {
-            $token = (string) ($_POST['edit_token'] ?? '');
+            $orderId = (int) ($_POST['order_id'] ?? 0);
             $payload = [
                 'nickname' => trim((string) ($_POST['nickname'] ?? '')),
                 'dish_no' => trim((string) ($_POST['dish_no'] ?? '')),
@@ -83,20 +88,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = implode(' ', $errors);
             } elseif ($action === 'order_create') {
                 $payload['created_by_token'] = (string) $_COOKIE['vote_token'];
-                $created = $repo->createOrder($payload);
-                $message = 'Bestellung gespeichert. Bearbeitungs-Token: ' . $created['edit_token'];
+                $repo->createOrder($payload);
+                $message = 'Bestellung gespeichert.';
             } elseif ($action === 'order_update') {
-                if (!preg_match('/^[a-f0-9]{32}$/', $token) || !$repo->findOrderByToken($token)) {
-                    $error = 'Ungültiger Bearbeitungs-Token.';
+                if ($orderId <= 0 || !$repo->findOrderByIdAndOwnerToken($orderId, (string) $_COOKIE['vote_token'])) {
+                    $error = 'Bestellung nicht gefunden oder kein Zugriff.';
                 } else {
-                    $repo->updateOrder($token, $payload);
+                    $repo->updateOrderByIdAndOwnerToken($orderId, (string) $_COOKIE['vote_token'], $payload);
                     $message = 'Bestellung wurde aktualisiert.';
                 }
             } elseif ($action === 'order_delete') {
-                if (!preg_match('/^[a-f0-9]{32}$/', $token) || !$repo->findOrderByToken($token)) {
-                    $error = 'Ungültiger Bearbeitungs-Token.';
+                if ($orderId <= 0 || !$repo->findOrderByIdAndOwnerToken($orderId, (string) $_COOKIE['vote_token'])) {
+                    $error = 'Bestellung nicht gefunden oder kein Zugriff.';
                 } else {
-                    $repo->deleteOrder($token);
+                    $repo->deleteOrderByIdAndOwnerToken($orderId, (string) $_COOKIE['vote_token']);
                     $message = 'Bestellung wurde gelöscht.';
                 }
             }
@@ -168,22 +173,27 @@ foreach ($suppliers as $supplier) {
         </section>
     <?php endif; ?>
 
-    <section class="card">
-        <h2>Zwischenstand</h2>
-        <table>
-            <thead><tr><th>Lieferant</th><th>Kategorie</th><th>Stimmen</th></tr></thead>
-            <tbody>
-            <?php foreach ($voteResults as $row): ?>
-                <tr<?= ($winner && (int) $winner['id'] === (int) $row['id']) ? ' class="leading"' : '' ?>>
-                    <td><?= e((string) $row['name']) ?></td><td><?= e((string) ($row['category_name'] ?? '-')) ?></td><td><?= (int) $row['votes'] ?></td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        <p class="muted">Bei Gleichstand gewinnt der Lieferant mit der kleineren ID (also der zuerst angelegte Lieferant).</p>
-    </section>
+    <?php if ($state['phase'] === 'voting'): ?>
+        <section class="card">
+            <h2>Zwischenstand</h2>
+            <table>
+                <thead><tr><th>Lieferant</th><th>Kategorie</th><th>Speisekarte</th><th>Stimmen</th></tr></thead>
+                <tbody>
+                <?php foreach ($voteResults as $row): ?>
+                    <tr<?= ($winner && (int) $winner['id'] === (int) $row['id']) ? ' class="leading"' : '' ?>>
+                        <td><?= e((string) $row['name']) ?></td>
+                        <td><?= e((string) ($row['category_name'] ?? '-')) ?></td>
+                        <td><a href="<?= e((string) $row['menu_url']) ?>" target="_blank" rel="noopener">Link</a></td>
+                        <td><?= (int) $row['votes'] ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <p class="muted">Bei Gleichstand gewinnt der Lieferant mit der kleineren ID (also der zuerst angelegte Lieferant).</p>
+        </section>
+    <?php endif; ?>
 
-    <?php if ($winner): ?>
+    <?php if ($winner && $state['phase'] !== 'voting'): ?>
         <section class="card">
             <h2>Gewinner: <?= e((string) $winner['name']) ?></h2>
             <p><?= e((string) ($winner['category_name'] ?? '-')) ?> · Tel. <?= e((string) $winner['phone']) ?> · <a href="<?= e((string) $winner['menu_url']) ?>" target="_blank" rel="noopener">Speisekarte</a></p>
@@ -207,17 +217,13 @@ foreach ($suppliers as $supplier) {
                     </select>
                 </label>
                 <label>Bemerkung<input type="text" name="note" maxlength="200" value="<?= e((string) ($editOrder['note'] ?? '')) ?>"></label>
-                <?php if ($editOrder): ?><input type="hidden" name="edit_token" value="<?= e((string) $editOrder['edit_token']) ?>"><?php endif; ?>
+                <?php if ($editOrder): ?><input type="hidden" name="order_id" value="<?= (int) $editOrder['id'] ?>"><?php endif; ?>
                 <label class="check"><input type="checkbox" name="confirmed" value="1" required> Ich bestätige, dass ich verbindlich bestellen möchte.</label>
+                <button type="submit"><?= $editOrder ? 'Bestellung aktualisieren' : 'Bestellung speichern' ?></button>
             </form>
 
-            <h3>Bestehende Bestellung bearbeiten/löschen</h3>
-            <form method="get" class="inline">
-                <input type="text" name="edit" placeholder="Bearbeitungs-Token" pattern="[a-f0-9]{32}" required>
-                <button type="submit">Laden</button>
-            </form>
             <?php if ($editOrder): ?>
-                <form method="post"><input type="hidden" name="action" value="order_delete"><input type="hidden" name="edit_token" value="<?= e((string) $editOrder['edit_token']) ?>"><button type="submit" class="danger">Bestellung löschen</button></form>
+                <form method="post"><input type="hidden" name="action" value="order_delete"><input type="hidden" name="order_id" value="<?= (int) $editOrder['id'] ?>"><button type="submit" class="danger">Bestellung löschen</button></form>
             <?php endif; ?>
         </section>
     <?php endif; ?>
@@ -229,6 +235,9 @@ foreach ($suppliers as $supplier) {
             <tbody>
             <?php foreach ($orders as $order): ?>
                 <tr><td><?= e((string) $order['nickname']) ?></td><td><?= e((string) $order['dish_no']) ?></td><td><?= e((string) $order['dish_name']) ?></td><td><?php if (!empty($order['dish_size'])): ?><span class="dish-size"><?= e((string) $order['dish_size']) ?></span><?php else: ?>-<?php endif; ?></td><td><?= number_format((float) $order['price'], 2, ',', '.') ?> €</td><td><?= e(strtoupper((string) $order['payment_method'])) ?></td><td><?= e((string) ($order['note'] ?: '-')) ?></td></tr>
+                <?php if ($state['phase'] === 'ordering'): ?>
+                    <tr><td colspan="7"><a href="?edit_id=<?= (int) $order['id'] ?>">Diese Bestellung bearbeiten/löschen</a></td></tr>
+                <?php endif; ?>
             <?php endforeach; ?>
             </tbody>
         </table>
