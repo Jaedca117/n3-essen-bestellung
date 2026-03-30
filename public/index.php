@@ -284,7 +284,7 @@ foreach ($suppliers as $supplier) {
         </table>
         <?php if (!$orders): ?><p class="muted">Du hast noch keine Bestellung erfasst.</p><?php endif; ?>
         <p><strong>Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> € · <strong>Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>
-        <?php if ($activePaypalLink && $state['paypal_enabled']): ?><p><a href="<?= e($activePaypalLink['url']) ?>" target="_blank" rel="noopener">PayPal-Link: <?= e($activePaypalLink['name']) ?></a></p><?php endif; ?>
+        <?php if ($activePaypalLink && $state['paypal_enabled'] && (float) $totals['paypal'] > 0): ?><p><a href="<?= e($activePaypalLink['url']) ?>" target="_blank" rel="noopener">PayPal-Link: <?= e($activePaypalLink['name']) ?></a></p><?php endif; ?>
     </section>
     <section id="datenschutz" class="card privacy-card">
         <h2>Datenschutzhinweis</h2>
