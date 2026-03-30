@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS `n3_essen_suppliers` (
   `category_id` INT UNSIGNED NOT NULL,
   `name` VARCHAR(120) NOT NULL,
   `menu_url` VARCHAR(255) NOT NULL DEFAULT '',
-  `phone` VARCHAR(40) NOT NULL DEFAULT '',
+  `order_method` VARCHAR(1000) NOT NULL DEFAULT '',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`),
   KEY `idx_category_id` (`category_id`),

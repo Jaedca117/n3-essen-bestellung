@@ -344,7 +344,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             'name' => trim((string) ($_POST['name'] ?? '')),
             'category_id' => (int) ($_POST['category_id'] ?? 0),
             'menu_url' => trim((string) ($_POST['menu_url'] ?? '')),
-            'phone' => trim((string) ($_POST['phone'] ?? '')),
+            'order_method' => trim((string) ($_POST['order_method'] ?? '')),
             'is_active' => isset($_POST['is_active']) ? 1 : 0,
         ];
         if ($payload['name'] === '' || $payload['category_id'] <= 0) {
@@ -596,7 +596,7 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
 <label>Name<input name="name" maxlength="120" required></label>
 <label>Kategorie<select name="category_id"><?php foreach ($categories as $c): ?><option value="<?= (int) $c['id'] ?>"><?= e((string) $c['name']) ?></option><?php endforeach; ?></select></label>
 <label>Speisekarten-Link<input name="menu_url" maxlength="255"></label>
-<label>Telefon<input name="phone" maxlength="40"></label>
+<label>Bestellverfahren<textarea name="order_method" rows="3" maxlength="1000" placeholder="z. B. telefonisch unter 0123..., per WhatsApp oder über https://..."></textarea></label>
 <label class="check"><input type="checkbox" name="is_active" checked> Aktiv</label>
 <button>Speichern</button></form>
 <ul><?php foreach ($suppliers as $s): ?><li>
@@ -608,7 +608,7 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
         <input name="name" maxlength="120" required value="<?= e((string) $s['name']) ?>">
         <select name="category_id"><?php foreach ($categories as $c): ?><option value="<?= (int) $c['id'] ?>" <?= ((int) $c['id'] === (int) $s['category_id']) ? 'selected' : '' ?>><?= e((string) $c['name']) ?></option><?php endforeach; ?></select>
         <input name="menu_url" maxlength="255" value="<?= e((string) $s['menu_url']) ?>" placeholder="Speisekarten-Link">
-        <input name="phone" maxlength="40" value="<?= e((string) $s['phone']) ?>" placeholder="Telefon">
+        <textarea name="order_method" rows="2" maxlength="1000" placeholder="Bestellverfahren"><?= e((string) ($s['order_method'] ?? '')) ?></textarea>
         <label class="check"><input type="checkbox" name="is_active" <?= ((int) $s['is_active'] === 1) ? 'checked' : '' ?>> Aktiv</label>
         <button>Ändern</button>
     </form>

@@ -69,12 +69,19 @@ final class AppRepository
             category_id INT UNSIGNED NOT NULL,
             name VARCHAR(120) NOT NULL,
             menu_url VARCHAR(255) NOT NULL DEFAULT "",
-            phone VARCHAR(40) NOT NULL DEFAULT "",
+            order_method VARCHAR(1000) NOT NULL DEFAULT "",
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             PRIMARY KEY (id),
             KEY idx_category_id (category_id),
             FOREIGN KEY (category_id) REFERENCES ' . $this->t('categories') . ' (id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+        if (!$this->columnExists('suppliers', 'order_method')) {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('suppliers') . ' ADD COLUMN order_method VARCHAR(1000) NOT NULL DEFAULT "" AFTER menu_url');
+            if ($this->columnExists('suppliers', 'phone')) {
+                $this->pdo->exec('UPDATE ' . $this->t('suppliers') . ' SET order_method = phone WHERE order_method = "" AND phone <> ""');
+            }
+        }
 
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('votes') . ' (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -281,14 +288,14 @@ final class AppRepository
             ':name' => $data['name'],
             ':category_id' => $data['category_id'],
             ':menu_url' => $data['menu_url'],
-            ':phone' => $data['phone'],
+            ':order_method' => $data['order_method'],
             ':is_active' => $data['is_active'],
         ];
         if (!empty($data['id'])) {
             $payload[':id'] = $data['id'];
-            $sql = 'UPDATE ' . $this->t('suppliers') . ' SET name=:name, category_id=:category_id, menu_url=:menu_url, phone=:phone, is_active=:is_active WHERE id=:id';
+            $sql = 'UPDATE ' . $this->t('suppliers') . ' SET name=:name, category_id=:category_id, menu_url=:menu_url, order_method=:order_method, is_active=:is_active WHERE id=:id';
         } else {
-            $sql = 'INSERT INTO ' . $this->t('suppliers') . ' (name, category_id, menu_url, phone, is_active) VALUES (:name,:category_id,:menu_url,:phone,:is_active)';
+            $sql = 'INSERT INTO ' . $this->t('suppliers') . ' (name, category_id, menu_url, order_method, is_active) VALUES (:name,:category_id,:menu_url,:order_method,:is_active)';
         }
         $this->pdo->prepare($sql)->execute($payload);
     }
@@ -324,12 +331,12 @@ final class AppRepository
 
     public function voteResults(): array
     {
-        $sql = 'SELECT s.id, s.name, c.name AS category_name, s.menu_url, s.phone, COUNT(v.id) AS votes
+        $sql = 'SELECT s.id, s.name, c.name AS category_name, s.menu_url, s.order_method, COUNT(v.id) AS votes
                 FROM ' . $this->t('suppliers') . ' s
                 LEFT JOIN ' . $this->t('categories') . ' c ON c.id=s.category_id
                 LEFT JOIN ' . $this->t('votes') . ' v ON v.supplier_id=s.id
                 WHERE s.is_active=1
-                GROUP BY s.id,s.name,c.name,s.menu_url,s.phone
+                GROUP BY s.id,s.name,c.name,s.menu_url,s.order_method
                 ORDER BY votes DESC, s.id ASC';
         return $this->pdo->query($sql)->fetchAll();
     }
