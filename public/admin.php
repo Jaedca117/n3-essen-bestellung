@@ -35,6 +35,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'logi
 }
 
 $isAdmin = isset($_SESSION['admin_id']);
+$adminSections = [
+    'current' => 'Aktuelle Bestellung',
+    'suppliers' => 'Lieferanten',
+    'settings' => 'Seiten-Einstellungen',
+];
+$adminSection = (string) ($_GET['section'] ?? 'current');
+if (!array_key_exists($adminSection, $adminSections)) {
+    $adminSection = 'current';
+}
 
 /**
  * @return list<string>
@@ -121,28 +130,51 @@ function paypal_link_options(array $settings): array
     return $result;
 }
 
-if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_settings')) {
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_current_settings')) {
     if (!verify_csrf_token($_POST['csrf'] ?? null)) {
         $error = 'Ungültiges CSRF-Token.';
     } else {
-        $allowed = ['daily_reset_time','daily_note','header_subtitle','order_closed','reset_daily_note','manual_winner_supplier_id'];
+        $dailyNote = trim((string) ($_POST['daily_note'] ?? ''));
+        $repo->saveSetting('daily_note', $dailyNote);
+        $repo->saveSetting('order_closed', isset($_POST['order_closed']) ? '1' : '0');
+
+        $activePaypalId = trim((string) ($_POST['paypal_link_active_id'] ?? ''));
+        $activePaypalUrl = '';
+        foreach (paypal_link_options($repo->getSettings()) as $entry) {
+            if ($entry['id'] === $activePaypalId) {
+                $activePaypalUrl = $entry['url'];
+                break;
+            }
+        }
+        if ($activePaypalId !== '' && $activePaypalUrl === '') {
+            $error = 'Aktiver PayPal-Link ist ungültig.';
+        } else {
+            $repo->saveSetting('paypal_link_active_id', $activePaypalId);
+            $repo->saveSetting('paypal_link', $activePaypalUrl);
+            $message = 'Bereich "Aktuelle Bestellung" gespeichert.';
+            $state = $service->runtimeState();
+        }
+    }
+}
+
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_page_settings')) {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges CSRF-Token.';
+    } else {
         foreach (weekday_labels() as $weekdayKey => $_) {
-            $allowed[] = 'voting_end_time_' . $weekdayKey;
-            $allowed[] = 'order_end_time_' . $weekdayKey;
+            $repo->saveSetting(
+                'voting_end_time_' . $weekdayKey,
+                normalized_hhmm((string) ($_POST['voting_end_time_' . $weekdayKey] ?? ''), '16:00')
+            );
+            $repo->saveSetting(
+                'order_end_time_' . $weekdayKey,
+                normalized_hhmm((string) ($_POST['order_end_time_' . $weekdayKey] ?? ''), '18:00')
+            );
         }
-        foreach ($allowed as $key) {
-            $value = trim((string) ($_POST[$key] ?? ''));
-            if ($key === 'order_closed' || $key === 'reset_daily_note') {
-                $value = isset($_POST[$key]) ? '1' : '0';
-            }
-            if (str_contains($key, 'voting_end_time_') || str_contains($key, 'order_end_time_')) {
-                $value = normalized_hhmm($value, str_starts_with($key, 'voting_') ? '16:00' : '18:00');
-            }
-            if ($key === 'daily_reset_time') {
-                $value = normalized_hhmm($value, '10:30');
-            }
-            $repo->saveSetting($key, $value);
-        }
+        $repo->saveSetting('daily_reset_time', normalized_hhmm((string) ($_POST['daily_reset_time'] ?? ''), '10:30'));
+        $repo->saveSetting('header_subtitle', trim((string) ($_POST['header_subtitle'] ?? '')));
+        $repo->saveSetting('manual_winner_supplier_id', trim((string) ($_POST['manual_winner_supplier_id'] ?? '')));
+        $repo->saveSetting('reset_daily_note', isset($_POST['reset_daily_note']) ? '1' : '0');
 
         $paypalLinkIds = $_POST['paypal_link_ids'] ?? [];
         $paypalLinkNames = $_POST['paypal_link_names'] ?? [];
@@ -179,7 +211,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
         $repo->saveSetting('paypal_link_active_id', $activePaypalId);
         $repo->saveSetting('paypal_link', $activePaypalUrl);
 
-        $message = 'Einstellungen gespeichert.';
+        $message = 'Bereich "Seiten-Einstellungen" gespeichert.';
         $state = $service->runtimeState();
     }
 }
@@ -308,65 +340,57 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
 <section class="card"><h2>Login</h2>
 <form method="post"><input type="hidden" name="action" value="login"><label>Benutzername<input name="username" required></label><label>Passwort<input type="password" name="password" required></label><button>Anmelden</button></form></section>
 <?php else: ?>
-<section class="card"><h2>Einstellungen</h2>
-<form method="post"><input type="hidden" name="action" value="save_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-<p class="muted">Individuelle Zeiten je Wochentag im Format HH:MM.</p>
-<table class="settings-time-table">
-    <thead>
-    <tr>
-        <th>Tag</th>
-        <th>Abstimmung endet</th>
-        <th>Bestellphase endet</th>
-    </tr>
-    </thead>
-    <tbody>
-    <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
-    <?php $votingValue = normalized_hhmm((string) ($settings['voting_end_time_' . $weekdayKey] ?? ''), '16:00'); ?>
-    <?php $orderValue = normalized_hhmm((string) ($settings['order_end_time_' . $weekdayKey] ?? ''), '18:00'); ?>
-    <tr>
-        <th scope="row"><?= e($weekdayLabel) ?></th>
-        <td><input name="voting_end_time_<?= e($weekdayKey) ?>" value="<?= e($votingValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric"></td>
-        <td><input name="order_end_time_<?= e($weekdayKey) ?>" value="<?= e($orderValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric"></td>
-    </tr>
-    <?php endforeach; ?>
-    </tbody>
-</table>
-<?php $resetValue = normalized_hhmm((string) ($settings['daily_reset_time'] ?? ''), '10:30'); ?>
-<label>Täglicher Reset (gilt für alle Tage)
-    <input name="daily_reset_time" value="<?= e($resetValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric">
+<section class="card">
+    <h2>Bereiche</h2>
+    <nav class="admin-sections">
+        <?php foreach ($adminSections as $key => $label): ?>
+            <a class="admin-section-link <?= $adminSection === $key ? 'active' : '' ?>" href="admin.php?section=<?= e($key) ?>"><?= e($label) ?></a>
+        <?php endforeach; ?>
+    </nav>
+</section>
+
+<?php if ($adminSection === 'current'): ?>
+<section class="card"><h2>Aktuelle Bestellung</h2>
+<form method="post"><input type="hidden" name="action" value="save_current_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+<label>Heutiger PayPal-Link
+    <select name="paypal_link_active_id">
+        <option value="">-- Kein Link --</option>
+        <?php foreach ($paypalLinks as $entry): ?>
+            <option value="<?= e($entry['id']) ?>" <?= ($activePaypalId === $entry['id']) ? 'selected' : '' ?>><?= e($entry['name']) ?></option>
+        <?php endforeach; ?>
+    </select>
 </label>
-<fieldset>
-    <legend>PayPal-Links</legend>
-    <p class="muted">Mehrere Links möglich. Format: Name + PayPal-Link.</p>
-    <?php foreach ($paypalLinks as $entry): ?>
-    <div class="inline">
-        <input type="hidden" name="paypal_link_ids[]" value="<?= e($entry['id']) ?>">
-        <input name="paypal_link_names[]" maxlength="80" placeholder="Name" value="<?= e($entry['name']) ?>">
-        <input name="paypal_link_urls[]" maxlength="255" placeholder="https://paypal.me/..." value="<?= e($entry['url']) ?>">
-    </div>
-    <?php endforeach; ?>
-    <div class="inline">
-        <input type="hidden" name="paypal_link_ids[]" value="">
-        <input name="paypal_link_names[]" maxlength="80" placeholder="Name">
-        <input name="paypal_link_urls[]" maxlength="255" placeholder="https://paypal.me/...">
-    </div>
-    <label>Aktiver PayPal-Link
-        <select name="paypal_link_active_id">
-            <option value="">-- Kein Link --</option>
-            <?php foreach ($paypalLinks as $entry): ?>
-                <option value="<?= e($entry['id']) ?>" <?= ($activePaypalId === $entry['id']) ? 'selected' : '' ?>><?= e($entry['name']) ?></option>
-            <?php endforeach; ?>
-        </select>
-    </label>
-</fieldset>
+<p class="muted">Druckansicht: <a href="print.php" target="_blank" rel="noopener">print.php öffnen</a></p>
 <label>Tageshinweis<input name="daily_note" maxlength="200" value="<?= e((string) ($settings['daily_note'] ?? '')) ?>"></label>
-<label>Zusätzlicher Text unter Website-Titel<input name="header_subtitle" maxlength="200" value="<?= e((string) ($settings['header_subtitle'] ?? '')) ?>"></label>
-<label>Manueller Gewinner (Lieferanten-ID)<input name="manual_winner_supplier_id" value="<?= e((string) ($settings['manual_winner_supplier_id'] ?? '')) ?>"></label>
 <label class="check"><input type="checkbox" name="order_closed" <?= (($settings['order_closed'] ?? '0') === '1') ? 'checked' : '' ?>> Bestellung abgeschlossen</label>
-<label class="check"><input type="checkbox" name="reset_daily_note" <?= (($settings['reset_daily_note'] ?? '1') === '1') ? 'checked' : '' ?>> Tageshinweis beim Reset löschen</label>
 <button>Speichern</button></form>
 </section>
 
+<section class="card"><h2>Aktuelle Bestellungen verwalten</h2>
+<ul><?php foreach ($orders as $o): ?><li>
+    <form method="post">
+        <input type="hidden" name="action" value="save_order_admin">
+        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+        <input type="hidden" name="id" value="<?= (int) $o['id'] ?>">
+        #<?= (int) $o['id'] ?>
+        <input name="nickname" maxlength="40" required value="<?= e((string) $o['nickname']) ?>" placeholder="Name">
+        <input name="dish_no" maxlength="20" value="<?= e((string) $o['dish_no']) ?>" placeholder="Nr.">
+        <input name="dish_name" maxlength="120" required value="<?= e((string) $o['dish_name']) ?>" placeholder="Gericht">
+        <input name="dish_size" maxlength="40" value="<?= e((string) ($o['dish_size'] ?? '')) ?>" placeholder="Größe (z. B. 30cm)">
+        <input type="number" step="0.01" min="0.01" max="999" name="price" required value="<?= e((string) $o['price']) ?>" placeholder="Preis">
+        <select name="payment_method">
+            <option value="bar" <?= ($o['payment_method'] === 'bar') ? 'selected' : '' ?>>Bar</option>
+            <?php if ($state['paypal_enabled']): ?><option value="paypal" <?= ($o['payment_method'] === 'paypal') ? 'selected' : '' ?>>PayPal</option><?php endif; ?>
+        </select>
+        <input name="note" maxlength="200" value="<?= e((string) $o['note']) ?>" placeholder="Hinweis">
+        <button>Ändern</button>
+    </form>
+    <form method="post" class="inline"><input type="hidden" name="action" value="delete_order_admin"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $o['id'] ?>"><button class="danger">Löschen</button></form>
+</li><?php endforeach; ?></ul>
+</section>
+<?php endif; ?>
+
+<?php if ($adminSection === 'suppliers'): ?>
 <section class="card"><h2>Kategorien verwalten</h2>
 <form method="post"><input type="hidden" name="action" value="save_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><label>Name<input name="name" maxlength="80" required></label><button>Speichern</button></form>
 <ul><?php foreach ($categories as $c): ?><li>
@@ -400,29 +424,51 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
     <form method="post" class="inline"><input type="hidden" name="action" value="delete_supplier"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $s['id'] ?>"><button class="danger">Löschen</button></form>
 </li><?php endforeach; ?></ul>
 </section>
+<?php endif; ?>
 
-<section class="card"><h2>Aktuelle Bestellungen verwalten</h2>
-<ul><?php foreach ($orders as $o): ?><li>
-    <form method="post">
-        <input type="hidden" name="action" value="save_order_admin">
-        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-        <input type="hidden" name="id" value="<?= (int) $o['id'] ?>">
-        #<?= (int) $o['id'] ?>
-        <input name="nickname" maxlength="40" required value="<?= e((string) $o['nickname']) ?>" placeholder="Name">
-        <input name="dish_no" maxlength="20" value="<?= e((string) $o['dish_no']) ?>" placeholder="Nr.">
-        <input name="dish_name" maxlength="120" required value="<?= e((string) $o['dish_name']) ?>" placeholder="Gericht">
-        <input name="dish_size" maxlength="40" value="<?= e((string) ($o['dish_size'] ?? '')) ?>" placeholder="Größe (z. B. 30cm)">
-        <input type="number" step="0.01" min="0.01" max="999" name="price" required value="<?= e((string) $o['price']) ?>" placeholder="Preis">
-        <select name="payment_method">
-            <option value="bar" <?= ($o['payment_method'] === 'bar') ? 'selected' : '' ?>>Bar</option>
-            <?php if ($state['paypal_enabled']): ?><option value="paypal" <?= ($o['payment_method'] === 'paypal') ? 'selected' : '' ?>>PayPal</option><?php endif; ?>
-        </select>
-        <input name="note" maxlength="200" value="<?= e((string) $o['note']) ?>" placeholder="Hinweis">
-        <button>Ändern</button>
-    </form>
-    <form method="post" class="inline"><input type="hidden" name="action" value="delete_order_admin"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $o['id'] ?>"><button class="danger">Löschen</button></form>
-</li><?php endforeach; ?></ul>
+<?php if ($adminSection === 'settings'): ?>
+<section class="card"><h2>Seiten-Einstellungen</h2>
+<form method="post"><input type="hidden" name="action" value="save_page_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+<p class="muted">Individuelle Zeiten je Wochentag im Format HH:MM.</p>
+<table class="settings-time-table">
+    <thead><tr><th>Tag</th><th>Abstimmung endet</th><th>Bestellphase endet</th></tr></thead>
+    <tbody>
+    <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
+    <?php $votingValue = normalized_hhmm((string) ($settings['voting_end_time_' . $weekdayKey] ?? ''), '16:00'); ?>
+    <?php $orderValue = normalized_hhmm((string) ($settings['order_end_time_' . $weekdayKey] ?? ''), '18:00'); ?>
+    <tr>
+        <th scope="row"><?= e($weekdayLabel) ?></th>
+        <td><input name="voting_end_time_<?= e($weekdayKey) ?>" value="<?= e($votingValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric"></td>
+        <td><input name="order_end_time_<?= e($weekdayKey) ?>" value="<?= e($orderValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric"></td>
+    </tr>
+    <?php endforeach; ?>
+    </tbody>
+</table>
+<?php $resetValue = normalized_hhmm((string) ($settings['daily_reset_time'] ?? ''), '10:30'); ?>
+<label>Täglicher Reset (gilt für alle Tage)
+    <input name="daily_reset_time" value="<?= e($resetValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric">
+</label>
+<fieldset>
+    <legend>PayPal-Links hinzufügen/ändern</legend>
+    <?php foreach ($paypalLinks as $entry): ?>
+    <div class="inline">
+        <input type="hidden" name="paypal_link_ids[]" value="<?= e($entry['id']) ?>">
+        <input name="paypal_link_names[]" maxlength="80" placeholder="Name" value="<?= e($entry['name']) ?>">
+        <input name="paypal_link_urls[]" maxlength="255" placeholder="https://paypal.me/..." value="<?= e($entry['url']) ?>">
+    </div>
+    <?php endforeach; ?>
+    <div class="inline">
+        <input type="hidden" name="paypal_link_ids[]" value="">
+        <input name="paypal_link_names[]" maxlength="80" placeholder="Name">
+        <input name="paypal_link_urls[]" maxlength="255" placeholder="https://paypal.me/...">
+    </div>
+</fieldset>
+<label>Zusätzlicher Text unter Website-Titel<input name="header_subtitle" maxlength="200" value="<?= e((string) ($settings['header_subtitle'] ?? '')) ?>"></label>
+<label>Manueller Gewinner (Lieferanten-ID)<input name="manual_winner_supplier_id" value="<?= e((string) ($settings['manual_winner_supplier_id'] ?? '')) ?>"></label>
+<label class="check"><input type="checkbox" name="reset_daily_note" <?= (($settings['reset_daily_note'] ?? '1') === '1') ? 'checked' : '' ?>> Tageshinweis beim Reset löschen</label>
+<button>Speichern</button></form>
 </section>
+<?php endif; ?>
 <?php endif; ?>
 
 </main></body></html>
