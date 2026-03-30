@@ -10,6 +10,9 @@ $service = new AppService($repo);
 $state = $service->runtimeState();
 $message = null;
 $error = null;
+$currentAdmin = null;
+$adminRole = null;
+$isSuperAdmin = false;
 
 if (isset($_GET['logout'])) {
     unset($_SESSION['admin_id']);
@@ -35,15 +38,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'logi
 }
 
 $isAdmin = isset($_SESSION['admin_id']);
+if ($isAdmin) {
+    $currentAdmin = $repo->findAdminById((int) $_SESSION['admin_id']);
+    if (!$currentAdmin) {
+        unset($_SESSION['admin_id']);
+        session_regenerate_id(true);
+        header('Location: admin.php');
+        exit;
+    }
+    $adminRole = (string) ($currentAdmin['role'] ?? 'orga');
+    $isSuperAdmin = can_manage_users($adminRole);
+    $repo->purgeOldAuditLogs(7);
+}
+
 $adminSections = [
     'current' => 'Aktuelle Bestellung',
     'suppliers' => 'Lieferanten',
     'settings' => 'Seiten-Einstellungen',
+    'audit' => 'Audit Log',
+    'users' => 'User Verwaltung',
 ];
+
+if (!$isSuperAdmin) {
+    unset($adminSections['users']);
+}
+
 $adminSection = (string) ($_GET['section'] ?? 'current');
 if (!array_key_exists($adminSection, $adminSections)) {
     $adminSection = 'current';
 }
+
+$auditActionLabels = [
+    'save_current_settings' => 'Aktuelle Bestellung gespeichert',
+    'save_page_settings' => 'Seiten-Einstellungen gespeichert',
+    'save_category' => 'Kategorie gespeichert',
+    'delete_category' => 'Kategorie gelöscht',
+    'save_supplier' => 'Lieferant gespeichert',
+    'delete_supplier' => 'Lieferant gelöscht',
+    'save_order_admin' => 'Bestellung aktualisiert',
+    'delete_order_admin' => 'Bestellung gelöscht',
+    'create_admin_user' => 'Admin/Orga User angelegt',
+    'update_admin_user' => 'Admin/Orga User aktualisiert',
+    'delete_admin_user' => 'Admin/Orga User gelöscht',
+];
 
 /**
  * @return list<string>
@@ -90,6 +127,16 @@ function normalized_hhmm(string $value, string $fallback): string
     return substr($trimmed, 0, 5);
 }
 
+function is_valid_admin_username(string $username): bool
+{
+    return preg_match('/^[a-zA-Z0-9_.-]{3,40}$/', $username) === 1;
+}
+
+function can_manage_users(?string $role): bool
+{
+    return $role === 'admin';
+}
+
 /**
  * @return list<array{id:string,name:string,url:string}>
  */
@@ -130,6 +177,30 @@ function paypal_link_options(array $settings): array
     return $result;
 }
 
+/**
+ * @param array<string, scalar|null> $details
+ */
+function record_audit_log(AppRepository $repo, ?array $currentAdmin, string $actionKey, string $targetType, string $targetId, array $details = []): void
+{
+    if (!$currentAdmin) {
+        return;
+    }
+    $role = (string) ($currentAdmin['role'] ?? 'orga');
+    if (!in_array($role, ['admin', 'orga'], true)) {
+        return;
+    }
+
+    $repo->logAdminAction(
+        (int) $currentAdmin['id'],
+        (string) $currentAdmin['username'],
+        $role,
+        $actionKey,
+        $targetType,
+        $targetId,
+        $details
+    );
+}
+
 if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_current_settings')) {
     if (!verify_csrf_token($_POST['csrf'] ?? null)) {
         $error = 'Ungültiges CSRF-Token.';
@@ -160,6 +231,10 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
                 $repo->saveSetting('paypal_link_active_id', $activePaypalId);
                 $repo->saveSetting('paypal_link', $activePaypalUrl);
                 $message = 'Bereich "Aktuelle Bestellung" gespeichert.';
+                record_audit_log($repo, $currentAdmin, 'save_current_settings', 'settings', 'current', [
+                    'order_closed' => isset($_POST['order_closed']) ? '1' : '0',
+                    'manual_winner_supplier_id' => $manualWinnerSupplierId,
+                ]);
                 $state = $service->runtimeState();
             }
         }
@@ -221,6 +296,10 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
         $repo->saveSetting('paypal_link', $activePaypalUrl);
 
         $message = 'Bereich "Seiten-Einstellungen" gespeichert.';
+        record_audit_log($repo, $currentAdmin, 'save_page_settings', 'settings', 'global', [
+            'daily_reset_time' => normalized_hhmm((string) ($_POST['daily_reset_time'] ?? ''), '10:30'),
+            'paypal_links_count' => count($paypalLinks),
+        ]);
         $state = $service->runtimeState();
     }
 }
@@ -234,6 +313,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             $error = 'Kategorie ungültig.';
         } else {
             $repo->upsertCategory((int) ($_POST['id'] ?? 0) ?: null, $name);
+            record_audit_log($repo, $currentAdmin, 'save_category', 'category', (string) ((int) ($_POST['id'] ?? 0)), ['name' => $name]);
             $message = 'Kategorie gespeichert.';
         }
     }
@@ -249,6 +329,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
         } elseif (!$repo->deleteCategory($categoryId)) {
             $error = 'Kategorie kann nicht gelöscht werden, solange noch Lieferanten zugeordnet sind.';
         } else {
+            record_audit_log($repo, $currentAdmin, 'delete_category', 'category', (string) $categoryId);
             $message = 'Kategorie gelöscht.';
         }
     }
@@ -270,6 +351,10 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             $error = 'Lieferant unvollständig.';
         } else {
             $repo->upsertSupplier($payload);
+            record_audit_log($repo, $currentAdmin, 'save_supplier', 'supplier', (string) $payload['id'], [
+                'name' => $payload['name'],
+                'category_id' => $payload['category_id'],
+            ]);
             $message = 'Lieferant gespeichert.';
         }
     }
@@ -284,6 +369,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             $error = 'Lieferanten-ID ungültig.';
         } else {
             $repo->deleteSupplier($supplierId);
+            record_audit_log($repo, $currentAdmin, 'delete_supplier', 'supplier', (string) $supplierId);
             $message = 'Lieferant gelöscht.';
         }
     }
@@ -311,6 +397,11 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
                 $error = implode(' ', $orderErrors);
             } else {
                 $repo->updateOrderById($orderId, $payload);
+                record_audit_log($repo, $currentAdmin, 'save_order_admin', 'order', (string) $orderId, [
+                    'nickname' => $payload['nickname'],
+                    'dish_name' => $payload['dish_name'],
+                    'payment_method' => $payload['payment_method'],
+                ]);
                 $message = 'Bestellung aktualisiert.';
             }
         }
@@ -326,7 +417,83 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             $error = 'Bestellung nicht gefunden.';
         } else {
             $repo->deleteOrderById($orderId);
+            record_audit_log($repo, $currentAdmin, 'delete_order_admin', 'order', (string) $orderId);
             $message = 'Bestellung gelöscht.';
+        }
+    }
+}
+
+if ($isAdmin && $isSuperAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_admin_user')) {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges CSRF-Token.';
+    } else {
+        $userId = (int) ($_POST['id'] ?? 0);
+        $username = trim((string) ($_POST['username'] ?? ''));
+        $password = (string) ($_POST['password'] ?? '');
+        $role = (string) ($_POST['role'] ?? 'orga');
+
+        if (!is_valid_admin_username($username)) {
+            $error = 'Benutzername ungültig (3-40 Zeichen, Buchstaben/Zahlen/._-).';
+        } elseif (!in_array($role, ['admin', 'orga'], true)) {
+            $error = 'Rolle ist ungültig.';
+        } elseif ($userId <= 0 && mb_strlen($password) < 8) {
+            $error = 'Passwort muss mindestens 8 Zeichen haben.';
+        } else {
+            try {
+                if ($userId > 0) {
+                    $existing = $repo->findAdminById($userId);
+                    if (!$existing) {
+                        $error = 'User nicht gefunden.';
+                    } else {
+                        $passwordHash = mb_strlen($password) >= 8 ? password_hash($password, PASSWORD_DEFAULT) : null;
+                        $repo->updateAdminUser($userId, $username, $role, $passwordHash);
+                        record_audit_log($repo, $currentAdmin, 'update_admin_user', 'admin_user', (string) $userId, [
+                            'username' => $username,
+                            'role' => $role,
+                            'password_changed' => $passwordHash !== null ? '1' : '0',
+                        ]);
+                        $message = 'User aktualisiert.';
+                    }
+                } else {
+                    $repo->createAdminUser($username, password_hash($password, PASSWORD_DEFAULT), $role);
+                    record_audit_log($repo, $currentAdmin, 'create_admin_user', 'admin_user', $username, [
+                        'username' => $username,
+                        'role' => $role,
+                    ]);
+                    $message = 'User erstellt.';
+                }
+            } catch (Throwable) {
+                $error = 'Benutzername ist bereits vergeben.';
+            }
+        }
+    }
+}
+
+if ($isAdmin && $isSuperAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'delete_admin_user')) {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges CSRF-Token.';
+    } else {
+        $userId = (int) ($_POST['id'] ?? 0);
+        if ($userId <= 0) {
+            $error = 'User-ID ungültig.';
+        } elseif ((int) $currentAdmin['id'] === $userId) {
+            $error = 'Du kannst deinen eigenen User nicht löschen.';
+        } else {
+            $allUsers = $repo->allAdminUsers();
+            $adminCount = count(array_filter($allUsers, static fn(array $row): bool => (string) ($row['role'] ?? '') === 'admin'));
+            $toDelete = $repo->findAdminById($userId);
+            if (!$toDelete) {
+                $error = 'User nicht gefunden.';
+            } elseif ((string) $toDelete['role'] === 'admin' && $adminCount <= 1) {
+                $error = 'Mindestens ein Admin muss bestehen bleiben.';
+            } else {
+                $repo->deleteAdminUser($userId);
+                record_audit_log($repo, $currentAdmin, 'delete_admin_user', 'admin_user', (string) $userId, [
+                    'username' => (string) $toDelete['username'],
+                    'role' => (string) $toDelete['role'],
+                ]);
+                $message = 'User gelöscht.';
+            }
         }
     }
 }
@@ -335,6 +502,8 @@ $settings = $repo->getSettings();
 $categories = $repo->categories();
 $suppliers = $repo->allSuppliers();
 $orders = $repo->orders();
+$adminUsers = $isSuperAdmin ? $repo->allAdminUsers() : [];
+$auditLogs = $isAdmin ? $repo->auditLogsLastDays(7) : [];
 $paypalLinks = paypal_link_options($settings);
 $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
 ?>
@@ -342,6 +511,9 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin</title><link rel="stylesheet" href="style.css"></head>
 <body><main class="container"><h1>Admin-Bereich</h1>
 <p><a href="index.php">Zur Startseite</a><?= $isAdmin ? ' · <a href="print.php" target="_blank" rel="noopener">Druckansicht</a> · <a href="?logout=1">Logout</a>' : '' ?></p>
+<?php if ($isAdmin && $currentAdmin): ?>
+<p class="muted">Angemeldet als <strong><?= e((string) $currentAdmin['username']) ?></strong> (<?= e($adminRole === 'admin' ? 'Admin' : 'Orga') ?>)</p>
+<?php endif; ?>
 <?php if ($message): ?><p class="notice success"><?= e($message) ?></p><?php endif; ?>
 <?php if ($error): ?><p class="notice error"><?= e($error) ?></p><?php endif; ?>
 
@@ -485,6 +657,77 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
 <label>Zusätzlicher Text unter Website-Titel<input name="header_subtitle" maxlength="200" value="<?= e((string) ($settings['header_subtitle'] ?? '')) ?>"></label>
 <label class="check"><input type="checkbox" name="reset_daily_note" <?= (($settings['reset_daily_note'] ?? '1') === '1') ? 'checked' : '' ?>> Tageshinweis beim Reset löschen</label>
 <button>Speichern</button></form>
+</section>
+<?php endif; ?>
+
+<?php if ($adminSection === 'users' && $isSuperAdmin): ?>
+<section class="card"><h2>User Verwaltung</h2>
+<p class="muted">Nur Admins können User anlegen, bearbeiten und löschen.</p>
+<form method="post">
+    <input type="hidden" name="action" value="save_admin_user">
+    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+    <label>Benutzername<input name="username" maxlength="40" required placeholder="z. B. orga_team"></label>
+    <label>Passwort (mind. 8 Zeichen)<input type="password" name="password" minlength="8" required></label>
+    <label>Rolle
+        <select name="role">
+            <option value="orga">Orga</option>
+            <option value="admin">Admin</option>
+        </select>
+    </label>
+    <button>Neuen User anlegen</button>
+</form>
+<hr>
+<ul>
+    <?php foreach ($adminUsers as $adminUser): ?>
+    <li>
+        <form method="post">
+            <input type="hidden" name="action" value="save_admin_user">
+            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+            <input type="hidden" name="id" value="<?= (int) $adminUser['id'] ?>">
+            #<?= (int) $adminUser['id'] ?>
+            <input name="username" maxlength="40" required value="<?= e((string) $adminUser['username']) ?>">
+            <select name="role">
+                <option value="orga" <?= ((string) $adminUser['role'] === 'orga') ? 'selected' : '' ?>>Orga</option>
+                <option value="admin" <?= ((string) $adminUser['role'] === 'admin') ? 'selected' : '' ?>>Admin</option>
+            </select>
+            <input type="password" name="password" minlength="8" placeholder="Neues Passwort (optional)">
+            <button>Speichern</button>
+        </form>
+        <form method="post" class="inline">
+            <input type="hidden" name="action" value="delete_admin_user">
+            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+            <input type="hidden" name="id" value="<?= (int) $adminUser['id'] ?>">
+            <button class="danger" <?= ((int) $adminUser['id'] === (int) $currentAdmin['id']) ? 'disabled' : '' ?>>Löschen</button>
+        </form>
+    </li>
+    <?php endforeach; ?>
+</ul>
+</section>
+<?php endif; ?>
+
+<?php if ($adminSection === 'audit'): ?>
+<section class="card"><h2>Audit Log (letzte 7 Tage)</h2>
+<?php if ($auditLogs === []): ?>
+    <p class="muted">Keine Einträge vorhanden.</p>
+<?php else: ?>
+    <table>
+        <thead>
+            <tr><th>Zeit</th><th>Benutzer</th><th>Rolle</th><th>Aktion</th><th>Ziel</th><th>Details</th></tr>
+        </thead>
+        <tbody>
+        <?php foreach ($auditLogs as $log): ?>
+            <tr>
+                <td><?= e((string) $log['created_at']) ?></td>
+                <td><?= e((string) $log['actor_username']) ?></td>
+                <td><?= e((string) $log['actor_role']) ?></td>
+                <td><?= e($auditActionLabels[(string) $log['action_key']] ?? (string) $log['action_key']) ?></td>
+                <td><?= e((string) $log['target_type']) ?><?= ((string) $log['target_id'] !== '') ? ' #' . e((string) $log['target_id']) : '' ?></td>
+                <td><code><?= e((string) $log['details_json']) ?></code></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+<?php endif; ?>
 </section>
 <?php endif; ?>
 <?php endif; ?>
