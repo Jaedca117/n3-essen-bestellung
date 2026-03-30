@@ -53,15 +53,67 @@ function validate_order_payload(array $payload, bool $paypalEnabled): array
     return $errors;
 }
 
+/**
+ * @return array<string, string>
+ */
+function weekday_labels(): array
+{
+    return [
+        'monday' => 'Montag',
+        'tuesday' => 'Dienstag',
+        'wednesday' => 'Mittwoch',
+        'thursday' => 'Donnerstag',
+        'friday' => 'Freitag',
+        'saturday' => 'Samstag',
+        'sunday' => 'Sonntag',
+    ];
+}
+
+/**
+ * @return list<string>
+ */
+function time_options(): array
+{
+    $options = [];
+    for ($hour = 0; $hour < 24; $hour++) {
+        for ($minute = 0; $minute < 60; $minute += 5) {
+            $options[] = sprintf('%02d:%02d', $hour, $minute);
+        }
+    }
+    return $options;
+}
+
+function normalized_hhmm(string $value, string $fallback): string
+{
+    $trimmed = trim($value);
+    if ($trimmed === '') {
+        return $fallback;
+    }
+    if (preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/', $trimmed) !== 1) {
+        return $fallback;
+    }
+    return substr($trimmed, 0, 5);
+}
+
 if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_settings')) {
     if (!verify_csrf_token($_POST['csrf'] ?? null)) {
         $error = 'Ungültiges CSRF-Token.';
     } else {
-        $allowed = ['voting_end_time','order_end_time','daily_reset_time','paypal_link','daily_note','order_closed','reset_daily_note','manual_winner_supplier_id'];
+        $allowed = ['daily_reset_time','paypal_link','daily_note','header_subtitle','order_closed','reset_daily_note','manual_winner_supplier_id'];
+        foreach (weekday_labels() as $weekdayKey => $_) {
+            $allowed[] = 'voting_end_time_' . $weekdayKey;
+            $allowed[] = 'order_end_time_' . $weekdayKey;
+        }
         foreach ($allowed as $key) {
             $value = trim((string) ($_POST[$key] ?? ''));
             if ($key === 'order_closed' || $key === 'reset_daily_note') {
                 $value = isset($_POST[$key]) ? '1' : '0';
+            }
+            if (str_contains($key, 'voting_end_time_') || str_contains($key, 'order_end_time_')) {
+                $value = normalized_hhmm($value, str_starts_with($key, 'voting_') ? '16:00' : '18:00');
+            }
+            if ($key === 'daily_reset_time') {
+                $value = normalized_hhmm($value, '10:30');
             }
             $repo->saveSetting($key, $value);
         }
@@ -194,11 +246,30 @@ $orders = $repo->orders();
 <?php else: ?>
 <section class="card"><h2>Einstellungen</h2>
 <form method="post"><input type="hidden" name="action" value="save_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-<label>Abstimmung endet (HH:MM:SS)<input name="voting_end_time" value="<?= e((string) ($settings['voting_end_time'] ?? '16:00:00')) ?>"></label>
-<label>Bestellphase endet (HH:MM:SS)<input name="order_end_time" value="<?= e((string) ($settings['order_end_time'] ?? '18:00:00')) ?>"></label>
-<label>Täglicher Reset (HH:MM:SS)<input name="daily_reset_time" value="<?= e((string) ($settings['daily_reset_time'] ?? '10:30:00')) ?>"></label>
+<?php $times = time_options(); ?>
+<?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
+<?php $votingValue = normalized_hhmm((string) ($settings['voting_end_time_' . $weekdayKey] ?? ''), '16:00'); ?>
+<?php $orderValue = normalized_hhmm((string) ($settings['order_end_time_' . $weekdayKey] ?? ''), '18:00'); ?>
+<label>Abstimmung endet (<?= e($weekdayLabel) ?>)
+    <select name="voting_end_time_<?= e($weekdayKey) ?>">
+        <?php foreach ($times as $time): ?><option value="<?= e($time) ?>" <?= $time === $votingValue ? 'selected' : '' ?>><?= e($time) ?></option><?php endforeach; ?>
+    </select>
+</label>
+<label>Bestellphase endet (<?= e($weekdayLabel) ?>)
+    <select name="order_end_time_<?= e($weekdayKey) ?>">
+        <?php foreach ($times as $time): ?><option value="<?= e($time) ?>" <?= $time === $orderValue ? 'selected' : '' ?>><?= e($time) ?></option><?php endforeach; ?>
+    </select>
+</label>
+<?php endforeach; ?>
+<?php $resetValue = normalized_hhmm((string) ($settings['daily_reset_time'] ?? ''), '10:30'); ?>
+<label>Täglicher Reset (gilt für alle Tage)
+    <select name="daily_reset_time">
+        <?php foreach ($times as $time): ?><option value="<?= e($time) ?>" <?= $time === $resetValue ? 'selected' : '' ?>><?= e($time) ?></option><?php endforeach; ?>
+    </select>
+</label>
 <label>PayPal-Link<input name="paypal_link" value="<?= e((string) ($settings['paypal_link'] ?? '')) ?>"></label>
 <label>Tageshinweis<input name="daily_note" maxlength="200" value="<?= e((string) ($settings['daily_note'] ?? '')) ?>"></label>
+<label>Zusätzlicher Text unter Website-Titel<input name="header_subtitle" maxlength="200" value="<?= e((string) ($settings['header_subtitle'] ?? '')) ?>"></label>
 <label>Manueller Gewinner (Lieferanten-ID)<input name="manual_winner_supplier_id" value="<?= e((string) ($settings['manual_winner_supplier_id'] ?? '')) ?>"></label>
 <label class="check"><input type="checkbox" name="order_closed" <?= (($settings['order_closed'] ?? '0') === '1') ? 'checked' : '' ?>> Bestellung abgeschlossen</label>
 <label class="check"><input type="checkbox" name="reset_daily_note" <?= (($settings['reset_daily_note'] ?? '1') === '1') ? 'checked' : '' ?>> Tageshinweis beim Reset löschen</label>
