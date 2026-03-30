@@ -92,6 +92,7 @@ final class AppRepository
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             public_id VARCHAR(12) NOT NULL,
             edit_token VARCHAR(64) NOT NULL,
+            created_by_token VARCHAR(64) NOT NULL DEFAULT "",
             nickname VARCHAR(40) NOT NULL,
             dish_no VARCHAR(20) NOT NULL DEFAULT "",
             dish_name VARCHAR(120) NOT NULL,
@@ -104,11 +105,16 @@ final class AppRepository
             updated_at DATETIME NOT NULL,
             PRIMARY KEY (id),
             UNIQUE KEY uniq_public_id (public_id),
-            UNIQUE KEY uniq_edit_token (edit_token)
+            UNIQUE KEY uniq_edit_token (edit_token),
+            KEY idx_created_by_token (created_by_token)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
         if (!$this->columnExists('orders', 'dish_size')) {
             $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD COLUMN dish_size VARCHAR(40) NOT NULL DEFAULT "" AFTER dish_name');
+        }
+        if (!$this->columnExists('orders', 'created_by_token')) {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD COLUMN created_by_token VARCHAR(64) NOT NULL DEFAULT "" AFTER edit_token');
+            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD KEY idx_created_by_token (created_by_token)');
         }
 
         if ($this->columnDataType('orders', 'dish_size') === 'enum') {
@@ -308,11 +314,12 @@ final class AppRepository
     {
         $publicId = strtoupper(bin2hex(random_bytes(4)));
         $editToken = bin2hex(random_bytes(16));
-        $sql = 'INSERT INTO ' . $this->t('orders') . ' (public_id, edit_token, nickname, dish_no, dish_name, dish_size, price, payment_method, note, confirmed, created_at, updated_at)
-                VALUES (:public_id,:edit_token,:nickname,:dish_no,:dish_name,:dish_size,:price,:payment_method,:note,:confirmed,NOW(),NOW())';
+        $sql = 'INSERT INTO ' . $this->t('orders') . ' (public_id, edit_token, created_by_token, nickname, dish_no, dish_name, dish_size, price, payment_method, note, confirmed, created_at, updated_at)
+                VALUES (:public_id,:edit_token,:created_by_token,:nickname,:dish_no,:dish_name,:dish_size,:price,:payment_method,:note,:confirmed,NOW(),NOW())';
         $this->pdo->prepare($sql)->execute([
             ':public_id' => $publicId,
             ':edit_token' => $editToken,
+            ':created_by_token' => (string) ($data['created_by_token'] ?? ''),
             ':nickname' => $data['nickname'],
             ':dish_no' => $data['dish_no'],
             ':dish_name' => $data['dish_name'],
@@ -376,6 +383,27 @@ final class AppRepository
     public function orders(): array
     {
         return $this->pdo->query('SELECT * FROM ' . $this->t('orders') . ' ORDER BY created_at ASC')->fetchAll();
+    }
+
+    public function ordersByOwnerToken(string $ownerToken): array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM ' . $this->t('orders') . ' WHERE created_by_token=:token ORDER BY created_at ASC');
+        $stmt->execute([':token' => $ownerToken]);
+        return $stmt->fetchAll();
+    }
+
+    public function orderTotalsByOwnerToken(string $ownerToken): array
+    {
+        $stmt = $this->pdo->prepare('SELECT payment_method, SUM(price) AS total FROM ' . $this->t('orders') . ' WHERE created_by_token=:token GROUP BY payment_method');
+        $stmt->execute([':token' => $ownerToken]);
+        $rows = $stmt->fetchAll();
+        $totals = ['bar' => 0.0, 'paypal' => 0.0, 'all' => 0.0];
+        foreach ($rows as $row) {
+            $k = strtolower((string) $row['payment_method']);
+            $totals[$k] = (float) $row['total'];
+            $totals['all'] += (float) $row['total'];
+        }
+        return $totals;
     }
 
     public function orderTotals(): array
