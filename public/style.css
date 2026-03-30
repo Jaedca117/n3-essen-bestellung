@@ -39,7 +39,17 @@ body{margin:0;min-height:100vh}
   display:block;
   max-height:90px;
   width:auto;
-  margin:0 0 .75rem;
+  margin:0;
+}
+
+.hero-head{
+  display:flex;
+  align-items:center;
+  gap:.85rem;
+  margin-bottom:.75rem;
+}
+.hero-head h1{
+  margin:.2rem 0;
 }
 
 h1,h2,h3{margin:.2rem 0 .8rem;color:#fff;letter-spacing:.2px}
@@ -107,6 +117,7 @@ th{color:#dbe4ff;background:#171f3b}
 @media (max-width:700px){
   th,td{font-size:.88rem;padding:.42rem}
   .container{padding:.65rem}
+  .hero-head{gap:.6rem}
 }
 
 
