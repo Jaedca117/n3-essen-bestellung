@@ -125,9 +125,29 @@ final class AppRepository
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             username VARCHAR(40) NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
+            role ENUM("admin", "orga") NOT NULL DEFAULT "admin",
             created_at DATETIME NOT NULL,
             PRIMARY KEY (id),
             UNIQUE KEY uniq_username (username)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+        if (!$this->columnExists('admin_users', 'role')) {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('admin_users') . ' ADD COLUMN role ENUM("admin", "orga") NOT NULL DEFAULT "admin" AFTER password_hash');
+        }
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('audit_logs') . ' (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            admin_user_id INT UNSIGNED NOT NULL,
+            actor_username VARCHAR(40) NOT NULL,
+            actor_role ENUM("admin", "orga") NOT NULL,
+            action_key VARCHAR(80) NOT NULL,
+            target_type VARCHAR(40) NOT NULL,
+            target_id VARCHAR(80) NOT NULL DEFAULT "",
+            details_json TEXT NOT NULL,
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY idx_created_at (created_at),
+            KEY idx_admin_user_id (admin_user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('rate_limits') . ' (
@@ -168,8 +188,8 @@ final class AppRepository
         $this->pdo->exec('INSERT IGNORE INTO ' . $this->t('categories') . ' (name) VALUES
             ("Italienisch"), ("Griechisch"), ("Burger"), ("Döner"), ("Asiatisch")');
 
-        $this->pdo->exec('INSERT INTO ' . $this->t('admin_users') . ' (username, password_hash, created_at)
-            SELECT "admin", "$2y$12$GNqw/UBiF19Pd1o5Z2Toke.OTW7T.Pn0veykfJLqDpGcp7a0G.NcG", NOW()
+        $this->pdo->exec('INSERT INTO ' . $this->t('admin_users') . ' (username, password_hash, role, created_at)
+            SELECT "admin", "$2y$12$GNqw/UBiF19Pd1o5Z2Toke.OTW7T.Pn0veykfJLqDpGcp7a0G.NcG", "admin", NOW()
             WHERE NOT EXISTS (SELECT 1 FROM ' . $this->t('admin_users') . ')');
     }
 
@@ -519,5 +539,88 @@ final class AppRepository
         $stmt = $this->pdo->prepare('SELECT * FROM ' . $this->t('admin_users') . ' WHERE username=:u LIMIT 1');
         $stmt->execute([':u'=>$username]);
         return $stmt->fetch() ?: null;
+    }
+
+    public function findAdminById(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM ' . $this->t('admin_users') . ' WHERE id=:id LIMIT 1');
+        $stmt->execute([':id' => $id]);
+        return $stmt->fetch() ?: null;
+    }
+
+    public function allAdminUsers(): array
+    {
+        return $this->pdo->query('SELECT * FROM ' . $this->t('admin_users') . ' ORDER BY username ASC')->fetchAll();
+    }
+
+    public function createAdminUser(string $username, string $passwordHash, string $role): void
+    {
+        $sql = 'INSERT INTO ' . $this->t('admin_users') . ' (username, password_hash, role, created_at) VALUES (:username, :password_hash, :role, NOW())';
+        $this->pdo->prepare($sql)->execute([
+            ':username' => $username,
+            ':password_hash' => $passwordHash,
+            ':role' => $role,
+        ]);
+    }
+
+    public function updateAdminUser(int $id, string $username, string $role, ?string $passwordHash = null): void
+    {
+        if ($passwordHash !== null) {
+            $sql = 'UPDATE ' . $this->t('admin_users') . ' SET username=:username, role=:role, password_hash=:password_hash WHERE id=:id';
+            $this->pdo->prepare($sql)->execute([
+                ':username' => $username,
+                ':role' => $role,
+                ':password_hash' => $passwordHash,
+                ':id' => $id,
+            ]);
+            return;
+        }
+
+        $sql = 'UPDATE ' . $this->t('admin_users') . ' SET username=:username, role=:role WHERE id=:id';
+        $this->pdo->prepare($sql)->execute([
+            ':username' => $username,
+            ':role' => $role,
+            ':id' => $id,
+        ]);
+    }
+
+    public function deleteAdminUser(int $id): void
+    {
+        $this->pdo->prepare('DELETE FROM ' . $this->t('admin_users') . ' WHERE id=:id')->execute([':id' => $id]);
+    }
+
+    public function logAdminAction(int $adminUserId, string $actorUsername, string $actorRole, string $actionKey, string $targetType, string $targetId, array $details = []): void
+    {
+        $sql = 'INSERT INTO ' . $this->t('audit_logs') . ' (admin_user_id, actor_username, actor_role, action_key, target_type, target_id, details_json, created_at)
+                VALUES (:admin_user_id, :actor_username, :actor_role, :action_key, :target_type, :target_id, :details_json, NOW())';
+        $this->pdo->prepare($sql)->execute([
+            ':admin_user_id' => $adminUserId,
+            ':actor_username' => $actorUsername,
+            ':actor_role' => $actorRole,
+            ':action_key' => $actionKey,
+            ':target_type' => $targetType,
+            ':target_id' => $targetId,
+            ':details_json' => json_encode($details, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+    }
+
+    public function purgeOldAuditLogs(int $days): void
+    {
+        $stmt = $this->pdo->prepare('DELETE FROM ' . $this->t('audit_logs') . ' WHERE created_at < DATE_SUB(NOW(), INTERVAL :days DAY)');
+        $stmt->bindValue(':days', $days, PDO::PARAM_INT);
+        $stmt->execute();
+    }
+
+    public function auditLogsLastDays(int $days): array
+    {
+        $sql = 'SELECT *
+                FROM ' . $this->t('audit_logs') . '
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL :days DAY)
+                ORDER BY created_at DESC, id DESC
+                LIMIT 500';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':days', $days, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
     }
 }
