@@ -799,14 +799,13 @@ $paypalLinks = paypal_link_options($settings);
 <?php if (count($editableWeekdaysCurrent) < count(weekday_labels())): ?>
 <p class="muted">Du kannst aktuell nur diese Tage bearbeiten: <?= e(implode(', ', array_map(static fn(string $key): string => weekday_labels()[$key] ?? $key, $editableWeekdaysCurrent))) ?>.</p>
 <?php endif; ?>
-<p class="muted">Individuelle Zeiten je Wochentag im Format HH:MM.</p>
 <div class="settings-day-list">
     <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
     <?php $votingValue = normalized_hhmm((string) ($settings['voting_end_time_' . $weekdayKey] ?? ''), '16:00'); ?>
     <?php $orderValue = normalized_hhmm((string) ($settings['order_end_time_' . $weekdayKey] ?? ''), '18:00'); ?>
     <?php $dayPaypalId = trim((string) ($settings['paypal_link_active_id_' . $weekdayKey] ?? '')); ?>
     <?php $canEditDay = in_array($weekdayKey, $editableWeekdaysCurrent, true); ?>
-    <details class="admin-collapsible-item settings-day-item" <?= $canEditDay ? '' : 'open' ?>>
+    <details class="admin-collapsible-item settings-day-item">
         <summary>
             <span><?= e($weekdayLabel) ?></span>
             <?php if (!$canEditDay): ?><span class="muted">Nicht bearbeitbar</span><?php endif; ?>
