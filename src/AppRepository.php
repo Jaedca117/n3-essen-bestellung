@@ -164,6 +164,7 @@ final class AppRepository
             username VARCHAR(40) NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
             role ENUM("admin", "orga") NOT NULL DEFAULT "admin",
+            editable_weekdays VARCHAR(100) NOT NULL DEFAULT "",
             created_at DATETIME NOT NULL,
             PRIMARY KEY (id),
             UNIQUE KEY uniq_username (username)
@@ -171,6 +172,9 @@ final class AppRepository
 
         if (!$this->columnExists('admin_users', 'role')) {
             $this->pdo->exec('ALTER TABLE ' . $this->t('admin_users') . ' ADD COLUMN role ENUM("admin", "orga") NOT NULL DEFAULT "admin" AFTER password_hash');
+        }
+        if (!$this->columnExists('admin_users', 'editable_weekdays')) {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('admin_users') . ' ADD COLUMN editable_weekdays VARCHAR(100) NOT NULL DEFAULT "" AFTER role');
         }
 
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('audit_logs') . ' (
@@ -226,8 +230,8 @@ final class AppRepository
         $this->pdo->exec('INSERT IGNORE INTO ' . $this->t('categories') . ' (name) VALUES
             ("Italienisch"), ("Griechisch"), ("Burger"), ("Döner"), ("Asiatisch")');
 
-        $this->pdo->exec('INSERT INTO ' . $this->t('admin_users') . ' (username, password_hash, role, created_at)
-            SELECT "admin", "$2y$12$GNqw/UBiF19Pd1o5Z2Toke.OTW7T.Pn0veykfJLqDpGcp7a0G.NcG", "admin", NOW()
+        $this->pdo->exec('INSERT INTO ' . $this->t('admin_users') . ' (username, password_hash, role, editable_weekdays, created_at)
+            SELECT "admin", "$2y$12$GNqw/UBiF19Pd1o5Z2Toke.OTW7T.Pn0veykfJLqDpGcp7a0G.NcG", "admin", "", NOW()
             WHERE NOT EXISTS (SELECT 1 FROM ' . $this->t('admin_users') . ')');
     }
 
@@ -615,33 +619,36 @@ final class AppRepository
         return $this->pdo->query('SELECT * FROM ' . $this->t('admin_users') . ' ORDER BY username ASC')->fetchAll();
     }
 
-    public function createAdminUser(string $username, string $passwordHash, string $role): void
+    public function createAdminUser(string $username, string $passwordHash, string $role, string $editableWeekdays): void
     {
-        $sql = 'INSERT INTO ' . $this->t('admin_users') . ' (username, password_hash, role, created_at) VALUES (:username, :password_hash, :role, NOW())';
+        $sql = 'INSERT INTO ' . $this->t('admin_users') . ' (username, password_hash, role, editable_weekdays, created_at) VALUES (:username, :password_hash, :role, :editable_weekdays, NOW())';
         $this->pdo->prepare($sql)->execute([
             ':username' => $username,
             ':password_hash' => $passwordHash,
             ':role' => $role,
+            ':editable_weekdays' => $editableWeekdays,
         ]);
     }
 
-    public function updateAdminUser(int $id, string $username, string $role, ?string $passwordHash = null): void
+    public function updateAdminUser(int $id, string $username, string $role, string $editableWeekdays, ?string $passwordHash = null): void
     {
         if ($passwordHash !== null) {
-            $sql = 'UPDATE ' . $this->t('admin_users') . ' SET username=:username, role=:role, password_hash=:password_hash WHERE id=:id';
+            $sql = 'UPDATE ' . $this->t('admin_users') . ' SET username=:username, role=:role, editable_weekdays=:editable_weekdays, password_hash=:password_hash WHERE id=:id';
             $this->pdo->prepare($sql)->execute([
                 ':username' => $username,
                 ':role' => $role,
+                ':editable_weekdays' => $editableWeekdays,
                 ':password_hash' => $passwordHash,
                 ':id' => $id,
             ]);
             return;
         }
 
-        $sql = 'UPDATE ' . $this->t('admin_users') . ' SET username=:username, role=:role WHERE id=:id';
+        $sql = 'UPDATE ' . $this->t('admin_users') . ' SET username=:username, role=:role, editable_weekdays=:editable_weekdays WHERE id=:id';
         $this->pdo->prepare($sql)->execute([
             ':username' => $username,
             ':role' => $role,
+            ':editable_weekdays' => $editableWeekdays,
             ':id' => $id,
         ]);
     }

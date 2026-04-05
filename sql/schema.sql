@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS `n3_essen_admin_users` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `username` VARCHAR(40) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
+  `role` ENUM('admin', 'orga') NOT NULL DEFAULT 'admin',
+  `editable_weekdays` VARCHAR(100) NOT NULL DEFAULT '',
   `created_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_username` (`username`)
@@ -92,7 +94,7 @@ INSERT INTO `n3_essen_categories` (`name`) VALUES
 ('Italienisch'), ('Griechisch'), ('Burger'), ('Döner'), ('Asiatisch')
 ON DUPLICATE KEY UPDATE name=VALUES(name);
 
-INSERT INTO `n3_essen_admin_users` (`username`, `password_hash`, `created_at`) VALUES
-('admin', '$2y$12$GNqw/UBiF19Pd1o5Z2Toke.OTW7T.Pn0veykfJLqDpGcp7a0G.NcG', NOW())
+INSERT INTO `n3_essen_admin_users` (`username`, `password_hash`, `role`, `editable_weekdays`, `created_at`) VALUES
+('admin', '$2y$12$GNqw/UBiF19Pd1o5Z2Toke.OTW7T.Pn0veykfJLqDpGcp7a0G.NcG', 'admin', '', NOW())
 ON DUPLICATE KEY UPDATE username=VALUES(username);
 -- Standardpasswort: bitte sofort ändern. Passwort für Hash ist: admin1234
