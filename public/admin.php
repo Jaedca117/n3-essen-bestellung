@@ -800,33 +800,39 @@ $paypalLinks = paypal_link_options($settings);
 <p class="muted">Du kannst aktuell nur diese Tage bearbeiten: <?= e(implode(', ', array_map(static fn(string $key): string => weekday_labels()[$key] ?? $key, $editableWeekdaysCurrent))) ?>.</p>
 <?php endif; ?>
 <p class="muted">Individuelle Zeiten je Wochentag im Format HH:MM.</p>
-<table class="settings-time-table">
-    <thead><tr><th>Tag</th><th>Abstimmung endet</th><th>Bestellphase endet</th><th>PayPal-Account</th></tr></thead>
-    <tbody>
+<div class="settings-day-list">
     <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
     <?php $votingValue = normalized_hhmm((string) ($settings['voting_end_time_' . $weekdayKey] ?? ''), '16:00'); ?>
     <?php $orderValue = normalized_hhmm((string) ($settings['order_end_time_' . $weekdayKey] ?? ''), '18:00'); ?>
     <?php $dayPaypalId = trim((string) ($settings['paypal_link_active_id_' . $weekdayKey] ?? '')); ?>
     <?php $canEditDay = in_array($weekdayKey, $editableWeekdaysCurrent, true); ?>
-    <tr>
-        <th scope="row"><?= e($weekdayLabel) ?></th>
-        <td><input name="voting_end_time_<?= e($weekdayKey) ?>" value="<?= e($votingValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric" <?= $canEditDay ? '' : 'disabled' ?>></td>
-        <td><input name="order_end_time_<?= e($weekdayKey) ?>" value="<?= e($orderValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric" <?= $canEditDay ? '' : 'disabled' ?>></td>
-        <td>
-            <select name="paypal_link_active_id_<?= e($weekdayKey) ?>" <?= $canEditDay ? '' : 'disabled' ?>>
-                <option value="">-- Kein Link --</option>
-                <?php foreach ($paypalLinks as $entry): ?>
-                    <option value="<?= e($entry['id']) ?>" <?= ($dayPaypalId === $entry['id']) ? 'selected' : '' ?>><?= e($entry['name']) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </td>
-    </tr>
+    <details class="admin-collapsible-item settings-day-item" <?= $canEditDay ? '' : 'open' ?>>
+        <summary>
+            <span><?= e($weekdayLabel) ?></span>
+            <?php if (!$canEditDay): ?><span class="muted">Nicht bearbeitbar</span><?php endif; ?>
+        </summary>
+        <div class="admin-collapsible-content settings-day-content">
+            <label>Abstimmung endet
+                <input type="time" name="voting_end_time_<?= e($weekdayKey) ?>" value="<?= e($votingValue) ?>" step="60" <?= $canEditDay ? '' : 'disabled' ?>>
+            </label>
+            <label>Bestellphase endet
+                <input type="time" name="order_end_time_<?= e($weekdayKey) ?>" value="<?= e($orderValue) ?>" step="60" <?= $canEditDay ? '' : 'disabled' ?>>
+            </label>
+            <label>PayPal-Account
+                <select name="paypal_link_active_id_<?= e($weekdayKey) ?>" <?= $canEditDay ? '' : 'disabled' ?>>
+                    <option value="">-- Kein Link --</option>
+                    <?php foreach ($paypalLinks as $entry): ?>
+                        <option value="<?= e($entry['id']) ?>" <?= ($dayPaypalId === $entry['id']) ? 'selected' : '' ?>><?= e($entry['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+        </div>
+    </details>
     <?php endforeach; ?>
-    </tbody>
-</table>
+</div>
 <?php $resetValue = normalized_hhmm((string) ($settings['daily_reset_time'] ?? ''), '10:30'); ?>
 <label>Täglicher Reset (gilt für alle Tage)
-    <input name="daily_reset_time" value="<?= e($resetValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric">
+    <input type="time" name="daily_reset_time" value="<?= e($resetValue) ?>" step="60">
 </label>
 <fieldset>
     <legend>PayPal-Links hinzufügen/ändern</legend>
