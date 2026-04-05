@@ -719,13 +719,23 @@ $paypalLinks = paypal_link_options($settings);
     <summary>➕ Neue Kategorie</summary>
     <form method="post" class="admin-create-form"><input type="hidden" name="action" value="save_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><label>Name<input name="name" maxlength="80" required></label><button>💾 Kategorie speichern</button></form>
 </details>
-<ul class="admin-row-list"><?php foreach ($categories as $c): ?><li class="admin-row-item">
-    <form method="post" class="admin-row-edit-form"><input type="hidden" name="action" value="save_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
-        <span class="admin-row-prefix">#<?= (int) $c['id'] ?></span>
-        <input name="name" maxlength="80" required value="<?= e((string) $c['name']) ?>">
-        <button class="secondary">✏️ Ändern</button>
-    </form>
-    <form method="post" class="admin-row-action"><input type="hidden" name="action" value="delete_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>"><button class="danger">🗑️ Löschen</button></form>
+<ul class="admin-collapsible-list"><?php foreach ($categories as $c): ?><li>
+    <details class="admin-collapsible-item">
+        <summary>
+            <span>#<?= (int) $c['id'] ?> · <?= e((string) $c['name']) ?></span>
+            <span>Kategorie</span>
+        </summary>
+        <div class="admin-collapsible-content">
+            <form method="post">
+                <input type="hidden" name="action" value="save_category">
+                <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
+                <input name="name" maxlength="80" required value="<?= e((string) $c['name']) ?>">
+                <button class="secondary">✏️ Ändern</button>
+            </form>
+            <form method="post" class="inline"><input type="hidden" name="action" value="delete_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>"><button class="danger">🗑️ Löschen</button></form>
+        </div>
+    </details>
 </li><?php endforeach; ?></ul>
 </section>
 
