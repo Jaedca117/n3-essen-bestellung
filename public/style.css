@@ -165,3 +165,40 @@ th{color:#dbe4ff;background:#171f3b}
   background:rgba(255,138,0,.22);
   color:#fff;
 }
+
+.admin-collapsible-list{
+  list-style:none;
+  margin:.8rem 0 0;
+  padding:0;
+  display:grid;
+  gap:.7rem;
+}
+.admin-collapsible-item{
+  border:1px solid #39466d;
+  border-radius:10px;
+  background:#0f152b;
+  overflow:hidden;
+}
+.admin-collapsible-item summary{
+  cursor:pointer;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  gap:.5rem;
+  padding:.7rem .8rem;
+  font-weight:600;
+}
+.admin-collapsible-item[open] summary{
+  border-bottom:1px solid #2e395d;
+}
+.admin-collapsible-content{
+  padding:.75rem;
+}
+.weekday-compact-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.55rem .9rem;
+}
+.weekday-compact-list .check{
+  margin:0;
+}
