@@ -43,9 +43,10 @@ function active_paypal_link(array $settings): ?array
     return null;
 }
 
-$message = null;
-$error = null;
+$message = isset($_SESSION['flash_message']) ? (string) $_SESSION['flash_message'] : null;
+$error = isset($_SESSION['flash_error']) ? (string) $_SESSION['flash_error'] : null;
 $editOrder = null;
+unset($_SESSION['flash_message'], $_SESSION['flash_error']);
 
 if (empty($_COOKIE['vote_token'])) {
     $voteToken = bin2hex(random_bytes(16));
@@ -70,6 +71,7 @@ $hasVoted = $voteCount >= 2;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
+    $orderId = 0;
 
     if ($action === 'vote') {
         if ($state['phase'] !== 'voting') {
@@ -151,9 +153,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    $state = $service->runtimeState();
-    $voteCount = $repo->voteCountForToken((string) $_COOKIE['vote_token']);
-    $hasVoted = $voteCount >= 2;
+    if ($message !== null) {
+        $_SESSION['flash_message'] = $message;
+    }
+    if ($error !== null) {
+        $_SESSION['flash_error'] = $error;
+    }
+
+    $redirectParams = [];
+    if ($action === 'order_update' && $error !== null && $orderId > 0) {
+        $redirectParams['edit_id'] = $orderId;
+    }
+
+    $redirectUrl = strtok((string) ($_SERVER['REQUEST_URI'] ?? '/'), '?');
+    if ($redirectUrl === false || $redirectUrl === '') {
+        $redirectUrl = '/';
+    }
+    if ($redirectParams !== []) {
+        $redirectUrl .= '?' . http_build_query($redirectParams);
+    }
+
+    header('Location: ' . $redirectUrl);
+    exit;
 }
 
 $settings = $state['settings'];
