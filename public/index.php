@@ -227,18 +227,23 @@ foreach ($suppliers as $supplier) {
             <h2>Abstimmen</h2>
             <p class="muted">Du hast <?= (int) $voteCount ?> von 2 Stimmen abgegeben.</p>
             <?php foreach ($groupedSuppliers as $category => $items): ?>
-                <h3><?= e((string) $category) ?></h3>
-                <div class="supplier-grid">
-                    <?php foreach ($items as $supplier): ?>
-                        <form method="post" class="supplier-card">
-                            <input type="hidden" name="action" value="vote">
-                            <input type="hidden" name="supplier_id" value="<?= (int) $supplier['id'] ?>">
-                            <strong><?= e((string) $supplier['name']) ?></strong>
-                            <a href="<?= e((string) $supplier['menu_url']) ?>" target="_blank" rel="noopener">Speisekarte</a>
-                            <button type="submit">Dafür stimmen</button>
-                        </form>
-                    <?php endforeach; ?>
-                </div>
+                <details class="supplier-category" open>
+                    <summary>
+                        <span><?= e((string) $category) ?></span>
+                        <span class="supplier-category-count"><?= count($items) ?> Lieferant<?= count($items) === 1 ? '' : 'en' ?></span>
+                    </summary>
+                    <div class="supplier-grid">
+                        <?php foreach ($items as $supplier): ?>
+                            <form method="post" class="supplier-card">
+                                <input type="hidden" name="action" value="vote">
+                                <input type="hidden" name="supplier_id" value="<?= (int) $supplier['id'] ?>">
+                                <strong><?= e((string) $supplier['name']) ?></strong>
+                                <a href="<?= e((string) $supplier['menu_url']) ?>" target="_blank" rel="noopener">Speisekarte</a>
+                                <button type="submit">Dafür stimmen</button>
+                            </form>
+                        <?php endforeach; ?>
+                    </div>
+                </details>
             <?php endforeach; ?>
         </section>
     <?php endif; ?>
