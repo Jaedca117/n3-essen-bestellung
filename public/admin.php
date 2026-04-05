@@ -14,6 +14,31 @@ $currentAdmin = null;
 $adminRole = null;
 $isSuperAdmin = false;
 
+function set_admin_flash(string $type, string $text): void
+{
+    $_SESSION['admin_flash'] = [
+        'type' => $type,
+        'text' => $text,
+    ];
+}
+
+function consume_admin_flash(): ?array
+{
+    $flash = $_SESSION['admin_flash'] ?? null;
+    unset($_SESSION['admin_flash']);
+    return is_array($flash) ? $flash : null;
+}
+
+function redirect_back_to_admin(): void
+{
+    $requestUri = (string) ($_SERVER['REQUEST_URI'] ?? 'admin.php');
+    if ($requestUri === '' || str_contains($requestUri, "\n") || str_contains($requestUri, "\r")) {
+        $requestUri = 'admin.php';
+    }
+    header('Location: ' . $requestUri);
+    exit;
+}
+
 if (isset($_GET['logout'])) {
     unset($_SESSION['admin_id']);
     session_regenerate_id(true);
@@ -34,6 +59,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'logi
             exit;
         }
         $error = 'Login fehlgeschlagen.';
+    }
+}
+
+$flash = consume_admin_flash();
+if ($flash) {
+    $flashType = (string) ($flash['type'] ?? '');
+    $flashText = (string) ($flash['text'] ?? '');
+    if ($flashType === 'success') {
+        $message = $flashText;
+    } elseif ($flashType === 'error') {
+        $error = $flashText;
     }
 }
 
@@ -288,7 +324,8 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
                 'order_closed' => isset($_POST['order_closed']) ? '1' : '0',
                 'manual_winner_supplier_id' => $manualWinnerSupplierId,
             ]);
-            $state = $service->runtimeState();
+            set_admin_flash('success', $message);
+            redirect_back_to_admin();
         }
     }
 }
@@ -364,6 +401,8 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
                 'daily_reset_time' => normalized_hhmm((string) ($_POST['daily_reset_time'] ?? ''), '10:30'),
                 'paypal_links_count' => count($paypalLinks),
             ]);
+            set_admin_flash('success', $message);
+            redirect_back_to_admin();
         }
         $state = $service->runtimeState();
     }
@@ -380,6 +419,8 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             $repo->upsertCategory((int) ($_POST['id'] ?? 0) ?: null, $name);
             record_audit_log($repo, $currentAdmin, 'save_category', 'category', (string) ((int) ($_POST['id'] ?? 0)), ['name' => $name]);
             $message = 'Kategorie gespeichert.';
+            set_admin_flash('success', $message);
+            redirect_back_to_admin();
         }
     }
 }
@@ -396,6 +437,8 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
         } else {
             record_audit_log($repo, $currentAdmin, 'delete_category', 'category', (string) $categoryId);
             $message = 'Kategorie gelöscht.';
+            set_admin_flash('success', $message);
+            redirect_back_to_admin();
         }
     }
 }
@@ -424,6 +467,8 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
                 'available_weekdays' => $payload['available_weekdays'],
             ]);
             $message = 'Lieferant gespeichert.';
+            set_admin_flash('success', $message);
+            redirect_back_to_admin();
         }
     }
 }
@@ -439,6 +484,8 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             $repo->deleteSupplier($supplierId);
             record_audit_log($repo, $currentAdmin, 'delete_supplier', 'supplier', (string) $supplierId);
             $message = 'Lieferant gelöscht.';
+            set_admin_flash('success', $message);
+            redirect_back_to_admin();
         }
     }
 }
@@ -473,6 +520,8 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
                     'is_paid' => $payload['is_paid'],
                 ]);
                 $message = 'Bestellung aktualisiert.';
+                set_admin_flash('success', $message);
+                redirect_back_to_admin();
             }
         }
     }
@@ -489,6 +538,8 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             $repo->deleteOrderById($orderId);
             record_audit_log($repo, $currentAdmin, 'delete_order_admin', 'order', (string) $orderId);
             $message = 'Bestellung gelöscht.';
+            set_admin_flash('success', $message);
+            redirect_back_to_admin();
         }
     }
 }
@@ -528,6 +579,8 @@ if ($isAdmin && $isSuperAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_PO
                             'password_changed' => $passwordHash !== null ? '1' : '0',
                         ]);
                         $message = 'User aktualisiert.';
+                        set_admin_flash('success', $message);
+                        redirect_back_to_admin();
                     }
                 } else {
                     $repo->createAdminUser($username, password_hash($password, PASSWORD_DEFAULT), $role, $editableWeekdaysDb);
@@ -537,6 +590,8 @@ if ($isAdmin && $isSuperAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_PO
                         'editable_weekdays' => $editableWeekdaysDb,
                     ]);
                     $message = 'User erstellt.';
+                    set_admin_flash('success', $message);
+                    redirect_back_to_admin();
                 }
             } catch (Throwable) {
                 $error = 'Benutzername ist bereits vergeben.';
@@ -569,6 +624,8 @@ if ($isAdmin && $isSuperAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_PO
                     'role' => (string) $toDelete['role'],
                 ]);
                 $message = 'User gelöscht.';
+                set_admin_flash('success', $message);
+                redirect_back_to_admin();
             }
         }
     }
