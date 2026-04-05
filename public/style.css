@@ -142,9 +142,26 @@ table{width:100%;border-collapse:collapse;background:#0f152b;border-radius:10px;
 th,td{text-align:left;padding:.58rem;border-bottom:1px solid #2e395d}
 th{color:#dbe4ff;background:#171f3b}
 .leading{background:rgba(111,98,255,.2)}
-.settings-time-table th[scope="row"]{background:#121a34}
-.settings-time-table td{min-width:160px}
-.settings-time-table input{margin:0}
+.settings-day-list{
+  display:grid;
+  gap:.65rem;
+  margin:.8rem 0;
+}
+.settings-day-item summary{
+  align-items:center;
+}
+.settings-day-content{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:.6rem .9rem;
+}
+.settings-day-content label{
+  margin:0;
+}
+.settings-day-content input,
+.settings-day-content select{
+  margin:.32rem 0 0;
+}
 
 @media (max-width:700px){
   th,td{font-size:.88rem;padding:.42rem}
