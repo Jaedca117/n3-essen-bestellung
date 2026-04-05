@@ -658,30 +658,39 @@ $paypalLinks = paypal_link_options($settings);
 
 <?php if ($adminSection === 'suppliers'): ?>
 <section class="card"><h2>Kategorien verwalten</h2>
-<form method="post"><input type="hidden" name="action" value="save_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><label>Name<input name="name" maxlength="80" required></label><button>Speichern</button></form>
-<ul><?php foreach ($categories as $c): ?><li>
-    <form method="post" class="inline"><input type="hidden" name="action" value="save_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
-    #<?= (int) $c['id'] ?> <input name="name" maxlength="80" required value="<?= e((string) $c['name']) ?>"><button>Ändern</button></form>
-    <form method="post" class="inline"><input type="hidden" name="action" value="delete_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>"><button class="danger">Löschen</button></form>
+<details class="admin-create-panel">
+    <summary>➕ Neue Kategorie</summary>
+    <form method="post" class="admin-create-form"><input type="hidden" name="action" value="save_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><label>Name<input name="name" maxlength="80" required></label><button>💾 Kategorie speichern</button></form>
+</details>
+<ul class="admin-row-list"><?php foreach ($categories as $c): ?><li class="admin-row-item">
+    <form method="post" class="admin-row-edit-form"><input type="hidden" name="action" value="save_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
+        <span class="admin-row-prefix">#<?= (int) $c['id'] ?></span>
+        <input name="name" maxlength="80" required value="<?= e((string) $c['name']) ?>">
+        <button class="secondary">✏️ Ändern</button>
+    </form>
+    <form method="post" class="admin-row-action"><input type="hidden" name="action" value="delete_category"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>"><button class="danger">🗑️ Löschen</button></form>
 </li><?php endforeach; ?></ul>
 </section>
 
 <section class="card"><h2>Lieferanten verwalten</h2>
-<form method="post"><input type="hidden" name="action" value="save_supplier"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-<label>Name<input name="name" maxlength="120" required></label>
-<label>Kategorie<select name="category_id"><?php foreach ($categories as $c): ?><option value="<?= (int) $c['id'] ?>"><?= e((string) $c['name']) ?></option><?php endforeach; ?></select></label>
-<label>Speisekarten-Link<input name="menu_url" maxlength="255"></label>
-<label>Bestellverfahren<textarea name="order_method" rows="3" maxlength="1000" placeholder="z. B. telefonisch unter 0123..., per WhatsApp oder über https://..."></textarea></label>
-<fieldset>
-    <legend>Verfügbare Wochentage (leer = jeden Tag)</legend>
-    <div class="weekday-compact-list">
-        <?php foreach (weekday_short_labels() as $weekdayKey => $weekdayLabel): ?>
-            <label class="check"><input type="checkbox" name="available_weekdays[]" value="<?= e($weekdayKey) ?>"> <?= e($weekdayLabel) ?></label>
-        <?php endforeach; ?>
-    </div>
-</fieldset>
-<label class="check"><input type="checkbox" name="is_active" checked> Aktiv</label>
-<button>Speichern</button></form>
+<details class="admin-create-panel">
+    <summary>➕ Neuer Lieferant</summary>
+    <form method="post" class="admin-create-form"><input type="hidden" name="action" value="save_supplier"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+    <label>Name<input name="name" maxlength="120" required></label>
+    <label>Kategorie<select name="category_id"><?php foreach ($categories as $c): ?><option value="<?= (int) $c['id'] ?>"><?= e((string) $c['name']) ?></option><?php endforeach; ?></select></label>
+    <label>Speisekarten-Link<input name="menu_url" maxlength="255"></label>
+    <label>Bestellverfahren<textarea name="order_method" rows="3" maxlength="1000" placeholder="z. B. telefonisch unter 0123..., per WhatsApp oder über https://..."></textarea></label>
+    <fieldset>
+        <legend>Verfügbare Wochentage (leer = jeden Tag)</legend>
+        <div class="weekday-compact-list">
+            <?php foreach (weekday_short_labels() as $weekdayKey => $weekdayLabel): ?>
+                <label class="check"><input type="checkbox" name="available_weekdays[]" value="<?= e($weekdayKey) ?>"> <?= e($weekdayLabel) ?></label>
+            <?php endforeach; ?>
+        </div>
+    </fieldset>
+    <label class="check"><input type="checkbox" name="is_active" checked> Aktiv</label>
+    <button>💾 Lieferant speichern</button></form>
+</details>
 <ul class="admin-collapsible-list"><?php foreach ($suppliers as $s): ?><li>
     <details class="admin-collapsible-item">
         <summary>

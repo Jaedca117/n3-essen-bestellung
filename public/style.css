@@ -84,6 +84,12 @@ button{
 }
 button:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 10px 18px rgba(255,138,0,.28)}
 button:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+button.secondary{
+  background:linear-gradient(135deg,#445581,#32446f);
+}
+button.secondary:hover{
+  box-shadow:0 10px 18px rgba(78,102,160,.28);
+}
 
 .supplier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.7rem}
 .supplier-card{
@@ -201,4 +207,70 @@ th{color:#dbe4ff;background:#171f3b}
 }
 .weekday-compact-list .check{
   margin:0;
+}
+
+.admin-create-panel{
+  border:1px solid #39466d;
+  border-radius:10px;
+  background:#0f152b;
+  margin:.2rem 0 .9rem;
+  overflow:hidden;
+}
+.admin-create-panel summary{
+  cursor:pointer;
+  list-style:none;
+  padding:.72rem .8rem;
+  font-weight:700;
+}
+.admin-create-panel summary::-webkit-details-marker{
+  display:none;
+}
+.admin-create-panel[open] summary{
+  border-bottom:1px solid #2e395d;
+}
+.admin-create-form{
+  padding:.8rem;
+}
+
+.admin-row-list{
+  list-style:none;
+  margin:.8rem 0 0;
+  padding:0;
+  display:grid;
+  gap:.55rem;
+}
+.admin-row-item{
+  display:flex;
+  align-items:center;
+  gap:.55rem;
+  flex-wrap:wrap;
+  border:1px solid #39466d;
+  border-radius:10px;
+  padding:.55rem;
+  background:#0f152b;
+}
+.admin-row-edit-form{
+  flex:1 1 350px;
+  display:flex;
+  align-items:center;
+  gap:.45rem;
+  flex-wrap:wrap;
+}
+.admin-row-prefix{
+  color:#dbe4ff;
+  font-weight:700;
+  min-width:3.4rem;
+}
+.admin-row-edit-form input{
+  flex:1 1 180px;
+  min-width:120px;
+}
+.admin-row-edit-form button,
+.admin-row-action button{
+  width:auto;
+  white-space:nowrap;
+  padding:.62rem .78rem;
+}
+.admin-row-action{
+  margin-left:auto;
 }
