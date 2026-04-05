@@ -115,6 +115,56 @@ function weekday_labels(): array
     ];
 }
 
+/**
+ * @return list<string>
+ */
+function parse_editable_weekdays(string $raw): array
+{
+    $validKeys = array_keys(weekday_labels());
+    $parts = array_filter(array_map('trim', explode(',', $raw)), static fn(string $v): bool => $v !== '');
+    $normalized = [];
+    foreach ($parts as $part) {
+        if (in_array($part, $validKeys, true)) {
+            $normalized[$part] = true;
+        }
+    }
+    return array_values(array_keys($normalized));
+}
+
+/**
+ * @return list<string>
+ */
+function sanitize_editable_weekday_input($posted): array
+{
+    if (!is_array($posted)) {
+        return [];
+    }
+    $validKeys = array_keys(weekday_labels());
+    $selected = [];
+    foreach ($posted as $value) {
+        $key = trim((string) $value);
+        if (in_array($key, $validKeys, true)) {
+            $selected[$key] = true;
+        }
+    }
+    return array_values(array_keys($selected));
+}
+
+/**
+ * @return list<string>
+ */
+function effective_editable_weekdays(array $adminUser): array
+{
+    if ((string) ($adminUser['role'] ?? '') === 'admin') {
+        return array_keys(weekday_labels());
+    }
+    $fromDb = parse_editable_weekdays((string) ($adminUser['editable_weekdays'] ?? ''));
+    if ($fromDb === []) {
+        return array_keys(weekday_labels());
+    }
+    return $fromDb;
+}
+
 function normalized_hhmm(string $value, string $fallback): string
 {
     $trimmed = trim($value);
@@ -245,7 +295,11 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
     if (!verify_csrf_token($_POST['csrf'] ?? null)) {
         $error = 'Ungültiges CSRF-Token.';
     } else {
+        $editableWeekdays = $currentAdmin ? effective_editable_weekdays($currentAdmin) : [];
         foreach (weekday_labels() as $weekdayKey => $_) {
+            if (!in_array($weekdayKey, $editableWeekdays, true)) {
+                continue;
+            }
             $repo->saveSetting(
                 'voting_end_time_' . $weekdayKey,
                 normalized_hhmm((string) ($_POST['voting_end_time_' . $weekdayKey] ?? ''), '16:00')
@@ -433,11 +487,15 @@ if ($isAdmin && $isSuperAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_PO
         $username = trim((string) ($_POST['username'] ?? ''));
         $password = (string) ($_POST['password'] ?? '');
         $role = (string) ($_POST['role'] ?? 'orga');
+        $editableWeekdays = sanitize_editable_weekday_input($_POST['editable_weekdays'] ?? []);
+        $editableWeekdaysDb = $role === 'orga' ? implode(',', $editableWeekdays) : '';
 
         if (!is_valid_admin_username($username)) {
             $error = 'Benutzername ungültig (3-40 Zeichen, Buchstaben/Zahlen/._-).';
         } elseif (!in_array($role, ['admin', 'orga'], true)) {
             $error = 'Rolle ist ungültig.';
+        } elseif ($role === 'orga' && $editableWeekdays === []) {
+            $error = 'Für Orga-User muss mindestens ein bearbeitbarer Wochentag ausgewählt werden.';
         } elseif ($userId <= 0 && mb_strlen($password) < 8) {
             $error = 'Passwort muss mindestens 8 Zeichen haben.';
         } else {
@@ -448,19 +506,21 @@ if ($isAdmin && $isSuperAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_PO
                         $error = 'User nicht gefunden.';
                     } else {
                         $passwordHash = mb_strlen($password) >= 8 ? password_hash($password, PASSWORD_DEFAULT) : null;
-                        $repo->updateAdminUser($userId, $username, $role, $passwordHash);
+                        $repo->updateAdminUser($userId, $username, $role, $editableWeekdaysDb, $passwordHash);
                         record_audit_log($repo, $currentAdmin, 'update_admin_user', 'admin_user', (string) $userId, [
                             'username' => $username,
                             'role' => $role,
+                            'editable_weekdays' => $editableWeekdaysDb,
                             'password_changed' => $passwordHash !== null ? '1' : '0',
                         ]);
                         $message = 'User aktualisiert.';
                     }
                 } else {
-                    $repo->createAdminUser($username, password_hash($password, PASSWORD_DEFAULT), $role);
+                    $repo->createAdminUser($username, password_hash($password, PASSWORD_DEFAULT), $role, $editableWeekdaysDb);
                     record_audit_log($repo, $currentAdmin, 'create_admin_user', 'admin_user', $username, [
                         'username' => $username,
                         'role' => $role,
+                        'editable_weekdays' => $editableWeekdaysDb,
                     ]);
                     $message = 'User erstellt.';
                 }
@@ -623,6 +683,10 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
 <?php if ($adminSection === 'settings'): ?>
 <section class="card"><h2>Seiten-Einstellungen</h2>
 <form method="post"><input type="hidden" name="action" value="save_page_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+<?php $editableWeekdaysCurrent = $currentAdmin ? effective_editable_weekdays($currentAdmin) : array_keys(weekday_labels()); ?>
+<?php if (count($editableWeekdaysCurrent) < count(weekday_labels())): ?>
+<p class="muted">Du kannst aktuell nur diese Tage bearbeiten: <?= e(implode(', ', array_map(static fn(string $key): string => weekday_labels()[$key] ?? $key, $editableWeekdaysCurrent))) ?>.</p>
+<?php endif; ?>
 <p class="muted">Individuelle Zeiten je Wochentag im Format HH:MM.</p>
 <table class="settings-time-table">
     <thead><tr><th>Tag</th><th>Abstimmung endet</th><th>Bestellphase endet</th></tr></thead>
@@ -630,10 +694,11 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
     <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
     <?php $votingValue = normalized_hhmm((string) ($settings['voting_end_time_' . $weekdayKey] ?? ''), '16:00'); ?>
     <?php $orderValue = normalized_hhmm((string) ($settings['order_end_time_' . $weekdayKey] ?? ''), '18:00'); ?>
+    <?php $canEditDay = in_array($weekdayKey, $editableWeekdaysCurrent, true); ?>
     <tr>
         <th scope="row"><?= e($weekdayLabel) ?></th>
-        <td><input name="voting_end_time_<?= e($weekdayKey) ?>" value="<?= e($votingValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric"></td>
-        <td><input name="order_end_time_<?= e($weekdayKey) ?>" value="<?= e($orderValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric"></td>
+        <td><input name="voting_end_time_<?= e($weekdayKey) ?>" value="<?= e($votingValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric" <?= $canEditDay ? '' : 'disabled' ?>></td>
+        <td><input name="order_end_time_<?= e($weekdayKey) ?>" value="<?= e($orderValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric" <?= $canEditDay ? '' : 'disabled' ?>></td>
     </tr>
     <?php endforeach; ?>
     </tbody>
@@ -677,11 +742,18 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
             <option value="admin">Admin</option>
         </select>
     </label>
+    <fieldset>
+        <legend>Bearbeitbare Tage (nur für Orga)</legend>
+        <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
+            <label class="check"><input type="checkbox" name="editable_weekdays[]" value="<?= e($weekdayKey) ?>" checked> <?= e($weekdayLabel) ?></label>
+        <?php endforeach; ?>
+    </fieldset>
     <button>Neuen User anlegen</button>
 </form>
 <hr>
 <ul>
     <?php foreach ($adminUsers as $adminUser): ?>
+    <?php $userEditableWeekdays = effective_editable_weekdays($adminUser); ?>
     <li>
         <form method="post">
             <input type="hidden" name="action" value="save_admin_user">
@@ -694,6 +766,12 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
                 <option value="admin" <?= ((string) $adminUser['role'] === 'admin') ? 'selected' : '' ?>>Admin</option>
             </select>
             <input type="password" name="password" minlength="8" placeholder="Neues Passwort (optional)">
+            <fieldset>
+                <legend>Bearbeitbare Tage (nur für Orga)</legend>
+                <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
+                    <label class="check"><input type="checkbox" name="editable_weekdays[]" value="<?= e($weekdayKey) ?>" <?= in_array($weekdayKey, $userEditableWeekdays, true) ? 'checked' : '' ?>> <?= e($weekdayLabel) ?></label>
+                <?php endforeach; ?>
+            </fieldset>
             <button>Speichern</button>
         </form>
         <form method="post" class="inline">
