@@ -214,8 +214,7 @@ foreach ($suppliers as $supplier) {
             <h1><?= e((string) ($config['app_name'] ?? 'Vereins-Essen')) ?></h1>
         </div>
         <?php if (!empty($settings['header_subtitle'])): ?><p><?= e((string) $settings['header_subtitle']) ?></p><?php endif; ?>
-        <p>Phase: <strong><?= $state['phase'] === 'voting' ? 'Abstimmung offen' : ($state['phase'] === 'ordering' ? 'Bestellphase offen' : 'Geschlossen') ?></strong></p>
-        <p>Abstimmung bis <?= e($state['voting_end']->format('H:i')) ?> Uhr · Bestellung bis <?= e($state['order_end']->format('H:i')) ?> Uhr</p>
+        <p>Abstimmung bis <?= e($state['voting_end']->format('H:i')) ?> Uhr<br>Bestellung bis <?= e($state['order_end']->format('H:i')) ?> Uhr</p>
         <?php if (!empty($settings['daily_note'])): ?><p class="notice info"><strong>Tageshinweis:</strong> <?= e((string) $settings['daily_note']) ?></p><?php endif; ?>
     </header>
 
@@ -310,23 +309,25 @@ foreach ($suppliers as $supplier) {
         </section>
     <?php endif; ?>
 
-    <section class="card">
-        <h2>Meine Bestellungen</h2>
-        <table>
-            <thead><tr><th>Name</th><th>#</th><th>Gericht</th><th>Größe</th><th>Preis</th><th>Zahlung</th><th>Hinweis</th><th>Bezahlt</th></tr></thead>
-            <tbody>
-            <?php foreach ($orders as $order): ?>
-                <tr><td><?= e((string) $order['nickname']) ?></td><td><?= e((string) $order['dish_no']) ?></td><td><?= e((string) $order['dish_name']) ?></td><td><?php if (!empty($order['dish_size'])): ?><span class="dish-size"><?= e((string) $order['dish_size']) ?></span><?php else: ?>-<?php endif; ?></td><td><?= number_format((float) $order['price'], 2, ',', '.') ?> €</td><td><?= e(strtoupper((string) $order['payment_method'])) ?></td><td><?= e((string) ($order['note'] ?: '-')) ?></td><td><?= ((int) ($order['is_paid'] ?? 0) === 1) ? 'Ja' : 'Nein' ?></td></tr>
-                <?php if ($state['phase'] === 'ordering'): ?>
-                    <tr><td colspan="8"><a href="?edit_id=<?= (int) $order['id'] ?>">Diese Bestellung bearbeiten/löschen</a></td></tr>
-                <?php endif; ?>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        <?php if (!$orders): ?><p class="muted">Du hast noch keine Bestellung erfasst.</p><?php endif; ?>
-        <p><strong>Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> € · <strong>Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>
-        <?php if ($activePaypalLink && $state['paypal_enabled'] && (float) $totals['paypal'] > 0): ?><p><a href="<?= e($activePaypalLink['url']) ?>" target="_blank" rel="noopener">PayPal-Link: <?= e($activePaypalLink['name']) ?></a></p><?php endif; ?>
-    </section>
+    <?php if ($state['phase'] !== 'voting'): ?>
+        <section class="card">
+            <h2>Meine Bestellungen</h2>
+            <table>
+                <thead><tr><th>Name</th><th>#</th><th>Gericht</th><th>Größe</th><th>Preis</th><th>Zahlung</th><th>Hinweis</th><th>Bezahlt</th></tr></thead>
+                <tbody>
+                <?php foreach ($orders as $order): ?>
+                    <tr><td><?= e((string) $order['nickname']) ?></td><td><?= e((string) $order['dish_no']) ?></td><td><?= e((string) $order['dish_name']) ?></td><td><?php if (!empty($order['dish_size'])): ?><span class="dish-size"><?= e((string) $order['dish_size']) ?></span><?php else: ?>-<?php endif; ?></td><td><?= number_format((float) $order['price'], 2, ',', '.') ?> €</td><td><?= e(strtoupper((string) $order['payment_method'])) ?></td><td><?= e((string) ($order['note'] ?: '-')) ?></td><td><?= ((int) ($order['is_paid'] ?? 0) === 1) ? 'Ja' : 'Nein' ?></td></tr>
+                    <?php if ($state['phase'] === 'ordering'): ?>
+                        <tr><td colspan="8"><a href="?edit_id=<?= (int) $order['id'] ?>">Diese Bestellung bearbeiten/löschen</a></td></tr>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php if (!$orders): ?><p class="muted">Du hast noch keine Bestellung erfasst.</p><?php endif; ?>
+            <p><strong>Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> € · <strong>Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>
+            <?php if ($activePaypalLink && $state['paypal_enabled'] && (float) $totals['paypal'] > 0): ?><p><a href="<?= e($activePaypalLink['url']) ?>" target="_blank" rel="noopener">PayPal-Link: <?= e($activePaypalLink['name']) ?></a></p><?php endif; ?>
+        </section>
+    <?php endif; ?>
     <section id="datenschutz" class="card privacy-card">
         <h2>Datenschutzhinweis</h2>
         <p>Die hier eingetragenen Daten können nur von den Stammtisch-/Eventverantwortlichen eingesehen werden. Diese Daten löschen sich täglich um <?= e($dailyResetTime) ?> Uhr.</p>
