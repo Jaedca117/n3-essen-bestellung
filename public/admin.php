@@ -842,55 +842,65 @@ $paypalLinks = paypal_link_options($settings);
 <?php if ($adminSection === 'users' && $isSuperAdmin): ?>
 <section class="card"><h2>User Verwaltung</h2>
 <p class="muted">Nur Admins können User anlegen, bearbeiten und löschen.</p>
-<form method="post">
-    <input type="hidden" name="action" value="save_admin_user">
-    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-    <label>Benutzername<input name="username" maxlength="40" required placeholder="z. B. orga_team"></label>
-    <label>Passwort (mind. 8 Zeichen)<input type="password" name="password" minlength="8" required></label>
-    <label>Rolle
-        <select name="role">
-            <option value="orga">Orga</option>
-            <option value="admin">Admin</option>
-        </select>
-    </label>
-    <fieldset>
-        <legend>Bearbeitbare Tage (nur für Orga)</legend>
-        <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
-            <label class="check"><input type="checkbox" name="editable_weekdays[]" value="<?= e($weekdayKey) ?>" checked> <?= e($weekdayLabel) ?></label>
-        <?php endforeach; ?>
-    </fieldset>
-    <button>Neuen User anlegen</button>
-</form>
-<hr>
-<ul>
+<details class="admin-create-panel">
+    <summary>➕ Neuer User</summary>
+    <form method="post" class="admin-create-form">
+        <input type="hidden" name="action" value="save_admin_user">
+        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+        <label>Benutzername<input name="username" maxlength="40" required placeholder="z. B. orga_team"></label>
+        <label>Passwort (mind. 8 Zeichen)<input type="password" name="password" minlength="8" required></label>
+        <label>Rolle
+            <select name="role">
+                <option value="orga">Orga</option>
+                <option value="admin">Admin</option>
+            </select>
+        </label>
+        <fieldset>
+            <legend>Bearbeitbare Tage (nur für Orga)</legend>
+            <div class="weekday-compact-list">
+                <?php foreach (weekday_short_labels() as $weekdayKey => $weekdayLabel): ?>
+                    <label class="check"><input type="checkbox" name="editable_weekdays[]" value="<?= e($weekdayKey) ?>" checked> <?= e($weekdayLabel) ?></label>
+                <?php endforeach; ?>
+            </div>
+        </fieldset>
+        <button>Neuen User anlegen</button>
+    </form>
+</details>
+<ul class="admin-collapsible-list">
     <?php foreach ($adminUsers as $adminUser): ?>
     <?php $userEditableWeekdays = effective_editable_weekdays($adminUser); ?>
     <li>
-        <form method="post">
-            <input type="hidden" name="action" value="save_admin_user">
-            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-            <input type="hidden" name="id" value="<?= (int) $adminUser['id'] ?>">
-            #<?= (int) $adminUser['id'] ?>
-            <input name="username" maxlength="40" required value="<?= e((string) $adminUser['username']) ?>">
-            <select name="role">
-                <option value="orga" <?= ((string) $adminUser['role'] === 'orga') ? 'selected' : '' ?>>Orga</option>
-                <option value="admin" <?= ((string) $adminUser['role'] === 'admin') ? 'selected' : '' ?>>Admin</option>
-            </select>
-            <input type="password" name="password" minlength="8" placeholder="Neues Passwort (optional)">
-            <fieldset>
-                <legend>Bearbeitbare Tage (nur für Orga)</legend>
-                <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
-                    <label class="check"><input type="checkbox" name="editable_weekdays[]" value="<?= e($weekdayKey) ?>" <?= in_array($weekdayKey, $userEditableWeekdays, true) ? 'checked' : '' ?>> <?= e($weekdayLabel) ?></label>
-                <?php endforeach; ?>
-            </fieldset>
-            <button>Speichern</button>
-        </form>
-        <form method="post" class="inline">
-            <input type="hidden" name="action" value="delete_admin_user">
-            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-            <input type="hidden" name="id" value="<?= (int) $adminUser['id'] ?>">
-            <button class="danger" <?= ((int) $adminUser['id'] === (int) $currentAdmin['id']) ? 'disabled' : '' ?>>Löschen</button>
-        </form>
+        <details class="admin-collapsible-item">
+            <summary>
+                <span>#<?= (int) $adminUser['id'] ?> · <?= e((string) $adminUser['username']) ?></span>
+                <span><?= ((string) $adminUser['role'] === 'admin') ? 'Admin' : 'Orga' ?></span>
+            </summary>
+            <div class="admin-collapsible-content">
+                <form method="post">
+                    <input type="hidden" name="action" value="save_admin_user">
+                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                    <input type="hidden" name="id" value="<?= (int) $adminUser['id'] ?>">
+                    <label>Benutzername<input name="username" maxlength="40" required value="<?= e((string) $adminUser['username']) ?>"></label>
+                    <label>Rolle
+                        <select name="role">
+                            <option value="orga" <?= ((string) $adminUser['role'] === 'orga') ? 'selected' : '' ?>>Orga</option>
+                            <option value="admin" <?= ((string) $adminUser['role'] === 'admin') ? 'selected' : '' ?>>Admin</option>
+                        </select>
+                    </label>
+                    <label>Neues Passwort (optional)<input type="password" name="password" minlength="8" placeholder="Neues Passwort (optional)"></label>
+                    <fieldset>
+                        <legend>Bearbeitbare Tage (nur für Orga)</legend>
+                        <div class="weekday-compact-list">
+                            <?php foreach (weekday_short_labels() as $weekdayKey => $weekdayLabel): ?>
+                                <label class="check"><input type="checkbox" name="editable_weekdays[]" value="<?= e($weekdayKey) ?>" <?= in_array($weekdayKey, $userEditableWeekdays, true) ? 'checked' : '' ?>> <?= e($weekdayLabel) ?></label>
+                            <?php endforeach; ?>
+                        </div>
+                    </fieldset>
+                    <button>Speichern</button>
+                </form>
+                <form method="post" class="inline"><input type="hidden" name="action" value="delete_admin_user"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $adminUser['id'] ?>"><button class="danger" <?= ((int) $adminUser['id'] === (int) $currentAdmin['id']) ? 'disabled' : '' ?>>Löschen</button></form>
+            </div>
+        </details>
     </li>
     <?php endforeach; ?>
 </ul>
