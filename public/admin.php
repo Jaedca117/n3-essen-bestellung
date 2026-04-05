@@ -394,15 +394,18 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             'category_id' => (int) ($_POST['category_id'] ?? 0),
             'menu_url' => trim((string) ($_POST['menu_url'] ?? '')),
             'order_method' => trim((string) ($_POST['order_method'] ?? '')),
+            'available_weekdays' => sanitize_supplier_weekday_input($_POST['available_weekdays'] ?? []),
             'is_active' => isset($_POST['is_active']) ? 1 : 0,
         ];
         if ($payload['name'] === '' || $payload['category_id'] <= 0) {
             $error = 'Lieferant unvollständig.';
         } else {
+            $payload['available_weekdays'] = implode(',', $payload['available_weekdays']);
             $repo->upsertSupplier($payload);
             record_audit_log($repo, $currentAdmin, 'save_supplier', 'supplier', (string) $payload['id'], [
                 'name' => $payload['name'],
                 'category_id' => $payload['category_id'],
+                'available_weekdays' => $payload['available_weekdays'],
             ]);
             $message = 'Lieferant gespeichert.';
         }
@@ -646,6 +649,12 @@ $paypalLinks = paypal_link_options($settings);
 <label>Kategorie<select name="category_id"><?php foreach ($categories as $c): ?><option value="<?= (int) $c['id'] ?>"><?= e((string) $c['name']) ?></option><?php endforeach; ?></select></label>
 <label>Speisekarten-Link<input name="menu_url" maxlength="255"></label>
 <label>Bestellverfahren<textarea name="order_method" rows="3" maxlength="1000" placeholder="z. B. telefonisch unter 0123..., per WhatsApp oder über https://..."></textarea></label>
+<fieldset>
+    <legend>Verfügbare Wochentage (leer = jeden Tag)</legend>
+    <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
+        <label class="check"><input type="checkbox" name="available_weekdays[]" value="<?= e($weekdayKey) ?>"> <?= e($weekdayLabel) ?></label>
+    <?php endforeach; ?>
+</fieldset>
 <label class="check"><input type="checkbox" name="is_active" checked> Aktiv</label>
 <button>Speichern</button></form>
 <ul><?php foreach ($suppliers as $s): ?><li>
@@ -658,6 +667,13 @@ $paypalLinks = paypal_link_options($settings);
         <select name="category_id"><?php foreach ($categories as $c): ?><option value="<?= (int) $c['id'] ?>" <?= ((int) $c['id'] === (int) $s['category_id']) ? 'selected' : '' ?>><?= e((string) $c['name']) ?></option><?php endforeach; ?></select>
         <input name="menu_url" maxlength="255" value="<?= e((string) $s['menu_url']) ?>" placeholder="Speisekarten-Link">
         <textarea name="order_method" rows="2" maxlength="1000" placeholder="Bestellverfahren"><?= e((string) ($s['order_method'] ?? '')) ?></textarea>
+        <?php $supplierWeekdays = parse_supplier_weekdays((string) ($s['available_weekdays'] ?? '')); ?>
+        <fieldset>
+            <legend>Verfügbare Wochentage (leer = jeden Tag)</legend>
+            <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
+                <label class="check"><input type="checkbox" name="available_weekdays[]" value="<?= e($weekdayKey) ?>" <?= in_array($weekdayKey, $supplierWeekdays, true) ? 'checked' : '' ?>> <?= e($weekdayLabel) ?></label>
+            <?php endforeach; ?>
+        </fieldset>
         <label class="check"><input type="checkbox" name="is_active" <?= ((int) $s['is_active'] === 1) ? 'checked' : '' ?>> Aktiv</label>
         <button>Ändern</button>
     </form>

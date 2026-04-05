@@ -87,6 +87,7 @@ final class AppRepository
             name VARCHAR(120) NOT NULL,
             menu_url VARCHAR(255) NOT NULL DEFAULT "",
             order_method VARCHAR(1000) NOT NULL DEFAULT "",
+            available_weekdays VARCHAR(100) NOT NULL DEFAULT "",
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             PRIMARY KEY (id),
             KEY idx_category_id (category_id),
@@ -98,6 +99,11 @@ final class AppRepository
             if ($this->columnExists('suppliers', 'phone')) {
                 $this->pdo->exec('UPDATE ' . $this->t('suppliers') . ' SET order_method = phone WHERE order_method = "" AND phone <> ""');
             }
+        }
+
+
+        if (!$this->columnExists('suppliers', 'available_weekdays')) {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('suppliers') . ' ADD COLUMN available_weekdays VARCHAR(100) NOT NULL DEFAULT "" AFTER order_method');
         }
 
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('votes') . ' (
@@ -284,7 +290,9 @@ final class AppRepository
                 LEFT JOIN ' . $this->t('categories') . ' c ON c.id=s.category_id
                 WHERE s.is_active=1
                 ORDER BY c.name ASC, s.name ASC';
-        return $this->pdo->query($sql)->fetchAll();
+        $rows = $this->pdo->query($sql)->fetchAll();
+        $weekdayKey = current_weekday_key();
+        return array_values(array_filter($rows, static fn(array $supplier): bool => supplier_available_on_weekday($supplier, $weekdayKey)));
     }
 
     public function allSuppliers(): array
@@ -324,13 +332,14 @@ final class AppRepository
             ':category_id' => $data['category_id'],
             ':menu_url' => $data['menu_url'],
             ':order_method' => $data['order_method'],
+            ':available_weekdays' => $data['available_weekdays'],
             ':is_active' => $data['is_active'],
         ];
         if (!empty($data['id'])) {
             $payload[':id'] = $data['id'];
-            $sql = 'UPDATE ' . $this->t('suppliers') . ' SET name=:name, category_id=:category_id, menu_url=:menu_url, order_method=:order_method, is_active=:is_active WHERE id=:id';
+            $sql = 'UPDATE ' . $this->t('suppliers') . ' SET name=:name, category_id=:category_id, menu_url=:menu_url, order_method=:order_method, available_weekdays=:available_weekdays, is_active=:is_active WHERE id=:id';
         } else {
-            $sql = 'INSERT INTO ' . $this->t('suppliers') . ' (name, category_id, menu_url, order_method, is_active) VALUES (:name,:category_id,:menu_url,:order_method,:is_active)';
+            $sql = 'INSERT INTO ' . $this->t('suppliers') . ' (name, category_id, menu_url, order_method, available_weekdays, is_active) VALUES (:name,:category_id,:menu_url,:order_method,:available_weekdays,:is_active)';
         }
         $this->pdo->prepare($sql)->execute($payload);
     }
@@ -380,14 +389,16 @@ final class AppRepository
 
     public function voteResults(): array
     {
-        $sql = 'SELECT s.id, s.name, c.name AS category_name, s.menu_url, s.order_method, COUNT(v.id) AS votes
+        $sql = 'SELECT s.id, s.name, c.name AS category_name, s.menu_url, s.order_method, s.available_weekdays, COUNT(v.id) AS votes
                 FROM ' . $this->t('suppliers') . ' s
                 LEFT JOIN ' . $this->t('categories') . ' c ON c.id=s.category_id
                 LEFT JOIN ' . $this->t('votes') . ' v ON v.supplier_id=s.id
                 WHERE s.is_active=1
-                GROUP BY s.id,s.name,c.name,s.menu_url,s.order_method
+                GROUP BY s.id,s.name,c.name,s.menu_url,s.order_method,s.available_weekdays
                 ORDER BY votes DESC, s.id ASC';
-        return $this->pdo->query($sql)->fetchAll();
+        $rows = $this->pdo->query($sql)->fetchAll();
+        $weekdayKey = current_weekday_key();
+        return array_values(array_filter($rows, static fn(array $supplier): bool => supplier_available_on_weekday($supplier, $weekdayKey)));
     }
 
     public function winner(): ?array

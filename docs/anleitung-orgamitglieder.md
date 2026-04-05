@@ -25,6 +25,7 @@ Empfohlener Ablauf:
 
 - Lieferantenliste aktuell halten (Namen klar und eindeutig).
 - Bei Ausfall eines Lieferanten den Eintrag temporär deaktivieren oder ersetzen.
+- Über "Verfügbare Wochentage" kannst du Lieferanten auf bestimmte Tage einschränken (leer = jeden Tag).
 - Änderungen möglichst vor Start der Abstimmung durchführen.
 
 ## 4) Laufenden Tag überwachen
