@@ -40,13 +40,17 @@ final class AppService
             $phase = 'closed';
         }
 
+        $activePaypalLink = $this->activePaypalLinkForWeekday($settings, $weekday);
+        $settings['paypal_link_active_id'] = $activePaypalLink['id'] ?? '';
+        $settings['paypal_link'] = $activePaypalLink['url'] ?? '';
+
         return [
             'settings' => $settings,
             'phase' => $phase,
             'now' => $now,
             'voting_end' => $votingEnd,
             'order_end' => $orderEnd,
-            'paypal_enabled' => trim((string) ($settings['paypal_link'] ?? '')) !== '',
+            'paypal_enabled' => isset($activePaypalLink['url']) && trim((string) $activePaypalLink['url']) !== '',
         ];
     }
 
@@ -105,5 +109,76 @@ final class AppService
             return $fallback;
         }
         return strlen($value) === 5 ? ($value . ':00') : $value;
+    }
+
+    /**
+     * @return array{id:string,name:string,url:string}|null
+     */
+    private function activePaypalLinkForWeekday(array $settings, string $weekday): ?array
+    {
+        $paypalLinks = $this->paypalLinkOptions($settings);
+        if ($paypalLinks === []) {
+            return null;
+        }
+
+        $dayActiveId = trim((string) ($settings['paypal_link_active_id_' . $weekday] ?? ''));
+        if ($dayActiveId !== '') {
+            foreach ($paypalLinks as $entry) {
+                if ($entry['id'] === $dayActiveId) {
+                    return $entry;
+                }
+            }
+        }
+
+        $fallbackId = trim((string) ($settings['paypal_link_active_id'] ?? ''));
+        if ($fallbackId !== '') {
+            foreach ($paypalLinks as $entry) {
+                if ($entry['id'] === $fallbackId) {
+                    return $entry;
+                }
+            }
+        }
+
+        return $paypalLinks[0];
+    }
+
+    /**
+     * @return list<array{id:string,name:string,url:string}>
+     */
+    private function paypalLinkOptions(array $settings): array
+    {
+        $raw = (string) ($settings['paypal_links'] ?? '');
+        if ($raw === '') {
+            $legacyLink = trim((string) ($settings['paypal_link'] ?? ''));
+            if ($legacyLink === '') {
+                return [];
+            }
+            return [[
+                'id' => 'legacy',
+                'name' => 'Standard',
+                'url' => $legacyLink,
+            ]];
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($decoded as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            $id = trim((string) ($entry['id'] ?? ''));
+            $name = trim((string) ($entry['name'] ?? ''));
+            $url = trim((string) ($entry['url'] ?? ''));
+            if ($id === '' || $name === '' || $url === '') {
+                continue;
+            }
+            $result[] = ['id' => $id, 'name' => $name, 'url' => $url];
+        }
+
+        return $result;
     }
 }
