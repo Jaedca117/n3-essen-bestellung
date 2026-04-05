@@ -4,16 +4,6 @@ declare(strict_types=1);
 
 final class AppService
 {
-    private const WEEKDAY_KEYS = [
-        1 => 'monday',
-        2 => 'tuesday',
-        3 => 'wednesday',
-        4 => 'thursday',
-        5 => 'friday',
-        6 => 'saturday',
-        7 => 'sunday',
-    ];
-
     public function __construct(private readonly AppRepository $repo)
     {
     }
@@ -26,7 +16,7 @@ final class AppService
 
         $now = new DateTimeImmutable('now');
         $today = $now->format('Y-m-d');
-        $weekday = self::WEEKDAY_KEYS[(int) $now->format('N')] ?? 'monday';
+        $weekday = current_weekday_key();
         $votingEnd = new DateTimeImmutable($today . ' ' . $this->timeSettingForDay($settings, 'voting_end_time', $weekday, '16:00:00'));
         $orderEnd = new DateTimeImmutable($today . ' ' . $this->timeSettingForDay($settings, 'order_end_time', $weekday, '18:00:00'));
 
