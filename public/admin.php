@@ -267,26 +267,12 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
         }
 
         if ($error === null) {
-            $activePaypalId = trim((string) ($_POST['paypal_link_active_id'] ?? ''));
-            $activePaypalUrl = '';
-            foreach (paypal_link_options($repo->getSettings()) as $entry) {
-                if ($entry['id'] === $activePaypalId) {
-                    $activePaypalUrl = $entry['url'];
-                    break;
-                }
-            }
-            if ($activePaypalId !== '' && $activePaypalUrl === '') {
-                $error = 'Aktiver PayPal-Link ist ungültig.';
-            } else {
-                $repo->saveSetting('paypal_link_active_id', $activePaypalId);
-                $repo->saveSetting('paypal_link', $activePaypalUrl);
-                $message = 'Bereich "Aktuelle Bestellung" gespeichert.';
-                record_audit_log($repo, $currentAdmin, 'save_current_settings', 'settings', 'current', [
-                    'order_closed' => isset($_POST['order_closed']) ? '1' : '0',
-                    'manual_winner_supplier_id' => $manualWinnerSupplierId,
-                ]);
-                $state = $service->runtimeState();
-            }
+            $message = 'Bereich "Aktuelle Bestellung" gespeichert.';
+            record_audit_log($repo, $currentAdmin, 'save_current_settings', 'settings', 'current', [
+                'order_closed' => isset($_POST['order_closed']) ? '1' : '0',
+                'manual_winner_supplier_id' => $manualWinnerSupplierId,
+            ]);
+            $state = $service->runtimeState();
         }
     }
 }
@@ -333,27 +319,36 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             }
         }
 
-        $activePaypalId = trim((string) ($_POST['paypal_link_active_id'] ?? ''));
-        $activePaypalUrl = '';
+        $paypalLinkIdsByKey = [];
         foreach ($paypalLinks as $entry) {
-            if ($entry['id'] === $activePaypalId) {
-                $activePaypalUrl = $entry['url'];
+            $paypalLinkIdsByKey[$entry['id']] = true;
+        }
+
+        foreach (weekday_labels() as $weekdayKey => $_) {
+            if (!in_array($weekdayKey, $editableWeekdays, true)) {
+                continue;
+            }
+            $selectedPaypalId = trim((string) ($_POST['paypal_link_active_id_' . $weekdayKey] ?? ''));
+            if ($selectedPaypalId !== '' && !isset($paypalLinkIdsByKey[$selectedPaypalId])) {
+                $error = 'PayPal-Account für ' . weekday_labels()[$weekdayKey] . ' ist ungültig.';
                 break;
             }
+            $repo->saveSetting('paypal_link_active_id_' . $weekdayKey, $selectedPaypalId);
         }
-        if ($activePaypalUrl === '' && $paypalLinks !== []) {
-            $activePaypalId = $paypalLinks[0]['id'];
-            $activePaypalUrl = $paypalLinks[0]['url'];
-        }
-        $repo->saveSetting('paypal_links', json_encode($paypalLinks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        $repo->saveSetting('paypal_link_active_id', $activePaypalId);
-        $repo->saveSetting('paypal_link', $activePaypalUrl);
 
-        $message = 'Bereich "Seiten-Einstellungen" gespeichert.';
-        record_audit_log($repo, $currentAdmin, 'save_page_settings', 'settings', 'global', [
-            'daily_reset_time' => normalized_hhmm((string) ($_POST['daily_reset_time'] ?? ''), '10:30'),
-            'paypal_links_count' => count($paypalLinks),
-        ]);
+        if ($error === null) {
+            $fallbackPaypalId = $paypalLinks[0]['id'] ?? '';
+            $fallbackPaypalUrl = $paypalLinks[0]['url'] ?? '';
+            $repo->saveSetting('paypal_links', json_encode($paypalLinks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $repo->saveSetting('paypal_link_active_id', $fallbackPaypalId);
+            $repo->saveSetting('paypal_link', $fallbackPaypalUrl);
+
+            $message = 'Bereich "Seiten-Einstellungen" gespeichert.';
+            record_audit_log($repo, $currentAdmin, 'save_page_settings', 'settings', 'global', [
+                'daily_reset_time' => normalized_hhmm((string) ($_POST['daily_reset_time'] ?? ''), '10:30'),
+                'paypal_links_count' => count($paypalLinks),
+            ]);
+        }
         $state = $service->runtimeState();
     }
 }
@@ -567,7 +562,6 @@ $orders = $repo->orders();
 $adminUsers = $isSuperAdmin ? $repo->allAdminUsers() : [];
 $auditLogs = $isAdmin ? $repo->auditLogsLastDays(7) : [];
 $paypalLinks = paypal_link_options($settings);
-$activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
 ?>
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin</title><link rel="stylesheet" href="style.css"></head>
@@ -595,14 +589,6 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
 <?php if ($adminSection === 'current'): ?>
 <section class="card"><h2>Aktuelle Bestellung</h2>
 <form method="post"><input type="hidden" name="action" value="save_current_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-<label>Heutiger PayPal-Link
-    <select name="paypal_link_active_id">
-        <option value="">-- Kein Link --</option>
-        <?php foreach ($paypalLinks as $entry): ?>
-            <option value="<?= e($entry['id']) ?>" <?= ($activePaypalId === $entry['id']) ? 'selected' : '' ?>><?= e($entry['name']) ?></option>
-        <?php endforeach; ?>
-    </select>
-</label>
 <p class="muted">Druckansicht: <a href="print.php">print.php öffnen</a></p>
 <label>Tageshinweis<input name="daily_note" maxlength="200" value="<?= e((string) ($settings['daily_note'] ?? '')) ?>"></label>
 <label>Manueller Gewinner
@@ -689,16 +675,25 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
 <?php endif; ?>
 <p class="muted">Individuelle Zeiten je Wochentag im Format HH:MM.</p>
 <table class="settings-time-table">
-    <thead><tr><th>Tag</th><th>Abstimmung endet</th><th>Bestellphase endet</th></tr></thead>
+    <thead><tr><th>Tag</th><th>Abstimmung endet</th><th>Bestellphase endet</th><th>PayPal-Account</th></tr></thead>
     <tbody>
     <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
     <?php $votingValue = normalized_hhmm((string) ($settings['voting_end_time_' . $weekdayKey] ?? ''), '16:00'); ?>
     <?php $orderValue = normalized_hhmm((string) ($settings['order_end_time_' . $weekdayKey] ?? ''), '18:00'); ?>
+    <?php $dayPaypalId = trim((string) ($settings['paypal_link_active_id_' . $weekdayKey] ?? '')); ?>
     <?php $canEditDay = in_array($weekdayKey, $editableWeekdaysCurrent, true); ?>
     <tr>
         <th scope="row"><?= e($weekdayLabel) ?></th>
         <td><input name="voting_end_time_<?= e($weekdayKey) ?>" value="<?= e($votingValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric" <?= $canEditDay ? '' : 'disabled' ?>></td>
         <td><input name="order_end_time_<?= e($weekdayKey) ?>" value="<?= e($orderValue) ?>" placeholder="HH:MM" pattern="(?:[01]\d|2[0-3]):[0-5]\d" inputmode="numeric" <?= $canEditDay ? '' : 'disabled' ?>></td>
+        <td>
+            <select name="paypal_link_active_id_<?= e($weekdayKey) ?>" <?= $canEditDay ? '' : 'disabled' ?>>
+                <option value="">-- Kein Link --</option>
+                <?php foreach ($paypalLinks as $entry): ?>
+                    <option value="<?= e($entry['id']) ?>" <?= ($dayPaypalId === $entry['id']) ? 'selected' : '' ?>><?= e($entry['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </td>
     </tr>
     <?php endforeach; ?>
     </tbody>
