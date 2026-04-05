@@ -116,6 +116,22 @@ function weekday_labels(): array
 }
 
 /**
+ * @return array<string, string>
+ */
+function weekday_short_labels(): array
+{
+    return [
+        'monday' => 'Mo',
+        'tuesday' => 'Di',
+        'wednesday' => 'Mi',
+        'thursday' => 'Do',
+        'friday' => 'Fr',
+        'saturday' => 'Sa',
+        'sunday' => 'So',
+    ];
+}
+
+/**
  * @return list<string>
  */
 function parse_editable_weekdays(string $raw): array
@@ -609,26 +625,33 @@ $paypalLinks = paypal_link_options($settings);
 </section>
 
 <section class="card"><h2>Aktuelle Bestellungen verwalten</h2>
-<ul><?php foreach ($orders as $o): ?><li>
-    <form method="post">
-        <input type="hidden" name="action" value="save_order_admin">
-        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-        <input type="hidden" name="id" value="<?= (int) $o['id'] ?>">
-        #<?= (int) $o['id'] ?>
-        <input name="nickname" maxlength="40" required value="<?= e((string) $o['nickname']) ?>" placeholder="Name">
-        <input name="dish_no" maxlength="20" value="<?= e((string) $o['dish_no']) ?>" placeholder="Nr.">
-        <input name="dish_name" maxlength="120" required value="<?= e((string) $o['dish_name']) ?>" placeholder="Gericht">
-        <input name="dish_size" maxlength="40" value="<?= e((string) ($o['dish_size'] ?? '')) ?>" placeholder="Größe (z. B. 30cm)">
-        <input type="number" step="0.01" min="0.01" max="999" name="price" required value="<?= e((string) $o['price']) ?>" placeholder="Preis">
-        <select name="payment_method">
-            <option value="bar" <?= ($o['payment_method'] === 'bar') ? 'selected' : '' ?>>Bar</option>
-            <?php if ($state['paypal_enabled']): ?><option value="paypal" <?= ($o['payment_method'] === 'paypal') ? 'selected' : '' ?>>PayPal</option><?php endif; ?>
-        </select>
-        <label class="check"><input type="checkbox" name="is_paid" value="1" <?= ((int) ($o['is_paid'] ?? 0) === 1) ? 'checked' : '' ?>> Bezahlt</label>
-        <input name="note" maxlength="200" value="<?= e((string) $o['note']) ?>" placeholder="Hinweis">
-        <button>Ändern</button>
-    </form>
-    <form method="post" class="inline"><input type="hidden" name="action" value="delete_order_admin"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $o['id'] ?>"><button class="danger">Löschen</button></form>
+<ul class="admin-collapsible-list"><?php foreach ($orders as $o): ?><li>
+    <details class="admin-collapsible-item">
+        <summary>
+            <span>#<?= (int) $o['id'] ?> · <?= e((string) $o['nickname']) ?></span>
+            <span><?= e((string) $o['dish_name']) ?> · <?= number_format((float) $o['price'], 2, ',', '.') ?> €</span>
+        </summary>
+        <div class="admin-collapsible-content">
+            <form method="post">
+                <input type="hidden" name="action" value="save_order_admin">
+                <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="id" value="<?= (int) $o['id'] ?>">
+                <input name="nickname" maxlength="40" required value="<?= e((string) $o['nickname']) ?>" placeholder="Name">
+                <input name="dish_no" maxlength="20" value="<?= e((string) $o['dish_no']) ?>" placeholder="Nr.">
+                <input name="dish_name" maxlength="120" required value="<?= e((string) $o['dish_name']) ?>" placeholder="Gericht">
+                <input name="dish_size" maxlength="40" value="<?= e((string) ($o['dish_size'] ?? '')) ?>" placeholder="Größe (z. B. 30cm)">
+                <input type="number" step="0.01" min="0.01" max="999" name="price" required value="<?= e((string) $o['price']) ?>" placeholder="Preis">
+                <select name="payment_method">
+                    <option value="bar" <?= ($o['payment_method'] === 'bar') ? 'selected' : '' ?>>Bar</option>
+                    <?php if ($state['paypal_enabled']): ?><option value="paypal" <?= ($o['payment_method'] === 'paypal') ? 'selected' : '' ?>>PayPal</option><?php endif; ?>
+                </select>
+                <label class="check"><input type="checkbox" name="is_paid" value="1" <?= ((int) ($o['is_paid'] ?? 0) === 1) ? 'checked' : '' ?>> Bezahlt</label>
+                <input name="note" maxlength="200" value="<?= e((string) $o['note']) ?>" placeholder="Hinweis">
+                <button>Ändern</button>
+            </form>
+            <form method="post" class="inline"><input type="hidden" name="action" value="delete_order_admin"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $o['id'] ?>"><button class="danger">Löschen</button></form>
+        </div>
+    </details>
 </li><?php endforeach; ?></ul>
 </section>
 <?php endif; ?>
@@ -651,33 +674,44 @@ $paypalLinks = paypal_link_options($settings);
 <label>Bestellverfahren<textarea name="order_method" rows="3" maxlength="1000" placeholder="z. B. telefonisch unter 0123..., per WhatsApp oder über https://..."></textarea></label>
 <fieldset>
     <legend>Verfügbare Wochentage (leer = jeden Tag)</legend>
-    <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
-        <label class="check"><input type="checkbox" name="available_weekdays[]" value="<?= e($weekdayKey) ?>"> <?= e($weekdayLabel) ?></label>
-    <?php endforeach; ?>
+    <div class="weekday-compact-list">
+        <?php foreach (weekday_short_labels() as $weekdayKey => $weekdayLabel): ?>
+            <label class="check"><input type="checkbox" name="available_weekdays[]" value="<?= e($weekdayKey) ?>"> <?= e($weekdayLabel) ?></label>
+        <?php endforeach; ?>
+    </div>
 </fieldset>
 <label class="check"><input type="checkbox" name="is_active" checked> Aktiv</label>
 <button>Speichern</button></form>
-<ul><?php foreach ($suppliers as $s): ?><li>
-    <form method="post">
-        <input type="hidden" name="action" value="save_supplier">
-        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-        <input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
-        #<?= (int) $s['id'] ?>
-        <input name="name" maxlength="120" required value="<?= e((string) $s['name']) ?>">
-        <select name="category_id"><?php foreach ($categories as $c): ?><option value="<?= (int) $c['id'] ?>" <?= ((int) $c['id'] === (int) $s['category_id']) ? 'selected' : '' ?>><?= e((string) $c['name']) ?></option><?php endforeach; ?></select>
-        <input name="menu_url" maxlength="255" value="<?= e((string) $s['menu_url']) ?>" placeholder="Speisekarten-Link">
-        <textarea name="order_method" rows="2" maxlength="1000" placeholder="Bestellverfahren"><?= e((string) ($s['order_method'] ?? '')) ?></textarea>
-        <?php $supplierWeekdays = parse_supplier_weekdays((string) ($s['available_weekdays'] ?? '')); ?>
-        <fieldset>
-            <legend>Verfügbare Wochentage (leer = jeden Tag)</legend>
-            <?php foreach (weekday_labels() as $weekdayKey => $weekdayLabel): ?>
-                <label class="check"><input type="checkbox" name="available_weekdays[]" value="<?= e($weekdayKey) ?>" <?= in_array($weekdayKey, $supplierWeekdays, true) ? 'checked' : '' ?>> <?= e($weekdayLabel) ?></label>
-            <?php endforeach; ?>
-        </fieldset>
-        <label class="check"><input type="checkbox" name="is_active" <?= ((int) $s['is_active'] === 1) ? 'checked' : '' ?>> Aktiv</label>
-        <button>Ändern</button>
-    </form>
-    <form method="post" class="inline"><input type="hidden" name="action" value="delete_supplier"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $s['id'] ?>"><button class="danger">Löschen</button></form>
+<ul class="admin-collapsible-list"><?php foreach ($suppliers as $s): ?><li>
+    <details class="admin-collapsible-item">
+        <summary>
+            <span>#<?= (int) $s['id'] ?> · <?= e((string) $s['name']) ?></span>
+            <span><?= ((int) $s['is_active'] === 1) ? 'Aktiv' : 'Inaktiv' ?></span>
+        </summary>
+        <div class="admin-collapsible-content">
+            <form method="post">
+                <input type="hidden" name="action" value="save_supplier">
+                <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
+                <input name="name" maxlength="120" required value="<?= e((string) $s['name']) ?>">
+                <select name="category_id"><?php foreach ($categories as $c): ?><option value="<?= (int) $c['id'] ?>" <?= ((int) $c['id'] === (int) $s['category_id']) ? 'selected' : '' ?>><?= e((string) $c['name']) ?></option><?php endforeach; ?></select>
+                <input name="menu_url" maxlength="255" value="<?= e((string) $s['menu_url']) ?>" placeholder="Speisekarten-Link">
+                <textarea name="order_method" rows="2" maxlength="1000" placeholder="Bestellverfahren"><?= e((string) ($s['order_method'] ?? '')) ?></textarea>
+                <?php $supplierWeekdays = parse_supplier_weekdays((string) ($s['available_weekdays'] ?? '')); ?>
+                <fieldset>
+                    <legend>Verfügbare Wochentage (leer = jeden Tag)</legend>
+                    <div class="weekday-compact-list">
+                        <?php foreach (weekday_short_labels() as $weekdayKey => $weekdayLabel): ?>
+                            <label class="check"><input type="checkbox" name="available_weekdays[]" value="<?= e($weekdayKey) ?>" <?= in_array($weekdayKey, $supplierWeekdays, true) ? 'checked' : '' ?>> <?= e($weekdayLabel) ?></label>
+                        <?php endforeach; ?>
+                    </div>
+                </fieldset>
+                <label class="check"><input type="checkbox" name="is_active" <?= ((int) $s['is_active'] === 1) ? 'checked' : '' ?>> Aktiv</label>
+                <button>Ändern</button>
+            </form>
+            <form method="post" class="inline"><input type="hidden" name="action" value="delete_supplier"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= (int) $s['id'] ?>"><button class="danger">Löschen</button></form>
+        </div>
+    </details>
 </li><?php endforeach; ?></ul>
 </section>
 <?php endif; ?>
