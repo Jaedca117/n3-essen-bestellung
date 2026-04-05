@@ -512,7 +512,7 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin</title><link rel="stylesheet" href="style.css"></head>
 <body><main class="container"><h1>Admin-Bereich</h1>
-<p><a href="index.php">Zur Startseite</a><?= $isAdmin ? ' · <a href="print.php" target="_blank" rel="noopener">Druckansicht</a> · <a href="?logout=1">Logout</a>' : '' ?></p>
+<p><a href="index.php">Zur Startseite</a><?= $isAdmin ? ' · <a href="print.php">Druckansicht</a> · <a href="?logout=1">Logout</a>' : '' ?></p>
 <?php if ($isAdmin && $currentAdmin): ?>
 <p class="muted">Angemeldet als <strong><?= e((string) $currentAdmin['username']) ?></strong> (<?= e($adminRole === 'admin' ? 'Admin' : 'Orga') ?>)</p>
 <?php endif; ?>
@@ -543,7 +543,7 @@ $activePaypalId = (string) ($settings['paypal_link_active_id'] ?? '');
         <?php endforeach; ?>
     </select>
 </label>
-<p class="muted">Druckansicht: <a href="print.php" target="_blank" rel="noopener">print.php öffnen</a></p>
+<p class="muted">Druckansicht: <a href="print.php">print.php öffnen</a></p>
 <label>Tageshinweis<input name="daily_note" maxlength="200" value="<?= e((string) ($settings['daily_note'] ?? '')) ?>"></label>
 <label>Manueller Gewinner
     <select name="manual_winner_supplier_id">
