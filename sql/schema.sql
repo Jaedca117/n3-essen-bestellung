@@ -19,11 +19,18 @@ CREATE TABLE IF NOT EXISTS `n3_essen_suppliers` (
   `name` VARCHAR(120) NOT NULL,
   `menu_url` VARCHAR(255) NOT NULL DEFAULT '',
   `order_method` VARCHAR(1000) NOT NULL DEFAULT '',
-  `available_weekdays` VARCHAR(100) NOT NULL DEFAULT '',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`),
   KEY `idx_category_id` (`category_id`),
   CONSTRAINT `fk_n3_essen_suppliers_category` FOREIGN KEY (`category_id`) REFERENCES `n3_essen_categories` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `n3_essen_supplier_weekdays` (
+  `supplier_id` INT UNSIGNED NOT NULL,
+  `weekday_key` VARCHAR(10) NOT NULL,
+  PRIMARY KEY (`supplier_id`, `weekday_key`),
+  KEY `idx_weekday_key` (`weekday_key`),
+  CONSTRAINT `fk_n3_essen_supplier_weekdays_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `n3_essen_suppliers` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `n3_essen_votes` (
@@ -75,10 +82,16 @@ CREATE TABLE IF NOT EXISTS `n3_essen_admin_users` (
   `username` VARCHAR(40) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
   `role` ENUM('admin', 'orga') NOT NULL DEFAULT 'admin',
-  `editable_weekdays` VARCHAR(100) NOT NULL DEFAULT '',
-  `created_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `n3_essen_admin_user_weekdays` (
+  `admin_user_id` INT UNSIGNED NOT NULL,
+  `weekday_key` VARCHAR(10) NOT NULL,
+  PRIMARY KEY (`admin_user_id`, `weekday_key`),
+  KEY `idx_admin_weekday_key` (`weekday_key`),
+  CONSTRAINT `fk_n3_essen_admin_user_weekdays_admin` FOREIGN KEY (`admin_user_id`) REFERENCES `n3_essen_admin_users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `n3_essen_audit_logs` (
@@ -138,8 +151,3 @@ ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value);
 INSERT INTO `n3_essen_categories` (`name`) VALUES
 ('Italienisch'), ('Griechisch'), ('Burger'), ('Döner'), ('Asiatisch')
 ON DUPLICATE KEY UPDATE name=VALUES(name);
-
-INSERT INTO `n3_essen_admin_users` (`username`, `password_hash`, `role`, `editable_weekdays`, `created_at`) VALUES
-('admin', '$2y$12$GNqw/UBiF19Pd1o5Z2Toke.OTW7T.Pn0veykfJLqDpGcp7a0G.NcG', 'admin', '', NOW())
-ON DUPLICATE KEY UPDATE username=VALUES(username);
--- Standardpasswort: bitte sofort ändern. Passwort für Hash ist: admin1234

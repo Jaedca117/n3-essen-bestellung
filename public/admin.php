@@ -16,6 +16,7 @@ $pdo = Database::connect($config['db']);
 $repo = new AppRepository($pdo, (string) ($config['db']['table_prefix'] ?? 'n3_essen_'));
 $service = new AppService($repo);
 $state = $service->runtimeState();
+$needsBootstrapAdmin = $repo->adminUserCount() === 0;
 $message = null;
 $error = null;
 $currentAdmin = null;
@@ -54,7 +55,29 @@ if (isset($_GET['logout'])) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'login')) {
+if ($needsBootstrapAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'bootstrap_admin')) {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges CSRF-Token.';
+    } elseif (!$service->canProceed('admin_login', client_ip())) {
+        $error = 'Zu viele Versuche. Bitte warten.';
+    } else {
+        $username = trim((string) ($_POST['username'] ?? ''));
+        $password = (string) ($_POST['password'] ?? '');
+        if (!is_valid_admin_username($username)) {
+            $error = 'Benutzername ungültig (3-40 Zeichen, Buchstaben/Zahlen/._-).';
+        } elseif (mb_strlen($password) < 12) {
+            $error = 'Passwort muss mindestens 12 Zeichen haben.';
+        } else {
+            $repo->createAdminUser($username, password_hash($password, PASSWORD_DEFAULT), 'admin', '');
+            $_SESSION['admin_id'] = (int) ($repo->findAdminByUsername($username)['id'] ?? 0);
+            session_regenerate_id(true);
+            header('Location: /admin');
+            exit;
+        }
+    }
+}
+
+if (!$needsBootstrapAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'login')) {
     if (!$service->canProceed('admin_login', client_ip())) {
         $error = 'Zu viele Login-Versuche. Bitte warten.';
     } else {
@@ -141,15 +164,7 @@ $auditActionLabels = [
  */
 function weekday_labels(): array
 {
-    return [
-        'monday' => 'Montag',
-        'tuesday' => 'Dienstag',
-        'wednesday' => 'Mittwoch',
-        'thursday' => 'Donnerstag',
-        'friday' => 'Freitag',
-        'saturday' => 'Samstag',
-        'sunday' => 'Sonntag',
-    ];
+    return weekday_labels_de();
 }
 
 /**
@@ -157,15 +172,7 @@ function weekday_labels(): array
  */
 function weekday_short_labels(): array
 {
-    return [
-        'monday' => 'Mo',
-        'tuesday' => 'Di',
-        'wednesday' => 'Mi',
-        'thursday' => 'Do',
-        'friday' => 'Fr',
-        'saturday' => 'Sa',
-        'sunday' => 'So',
-    ];
+    return weekday_short_labels_de();
 }
 
 /**
@@ -173,15 +180,7 @@ function weekday_short_labels(): array
  */
 function parse_editable_weekdays(string $raw): array
 {
-    $validKeys = array_keys(weekday_labels());
-    $parts = array_filter(array_map('trim', explode(',', $raw)), static fn(string $v): bool => $v !== '');
-    $normalized = [];
-    foreach ($parts as $part) {
-        if (in_array($part, $validKeys, true)) {
-            $normalized[$part] = true;
-        }
-    }
-    return array_values(array_keys($normalized));
+    return parse_weekday_csv($raw);
 }
 
 /**
@@ -189,18 +188,7 @@ function parse_editable_weekdays(string $raw): array
  */
 function sanitize_editable_weekday_input($posted): array
 {
-    if (!is_array($posted)) {
-        return [];
-    }
-    $validKeys = array_keys(weekday_labels());
-    $selected = [];
-    foreach ($posted as $value) {
-        $key = trim((string) $value);
-        if (in_array($key, $validKeys, true)) {
-            $selected[$key] = true;
-        }
-    }
-    return array_values(array_keys($selected));
+    return sanitize_weekday_input($posted);
 }
 
 /**
@@ -329,10 +317,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             $repo->saveSetting('paypal_link_active_id_' . $weekdayKey, $selectedPaypalId);
         }
 
-        if ($error !== null) {
-            $state = $service->runtimeState();
-            $settings = $repo->getSettings();
-        } else {
+        if ($error === null) {
             $message = 'Bereich "Zeiten" gespeichert.';
             $todayWeekday = current_weekday_key();
             record_audit_log($repo, $currentAdmin, 'save_time_settings', 'settings', 'times', [
@@ -683,13 +668,25 @@ $paypalLinks = $service->paypalLinkOptions($settings);
 
 <?php if (!$isAdmin): ?>
 <section class="card">
-    <h2>Login</h2>
-    <form method="post">
-        <input type="hidden" name="action" value="login">
-        <label>Benutzername<input name="username" required></label>
-        <label>Passwort<input type="password" name="password" required></label>
-        <button>Anmelden</button>
-    </form>
+    <?php if ($needsBootstrapAdmin): ?>
+        <h2>Ersteinrichtung Admin</h2>
+        <p class="muted">Es existiert noch kein Admin-Konto. Bitte jetzt ein sicheres Passwort vergeben.</p>
+        <form method="post">
+            <input type="hidden" name="action" value="bootstrap_admin">
+            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+            <label>Benutzername<input name="username" maxlength="40" required></label>
+            <label>Passwort (mind. 12 Zeichen)<input type="password" name="password" minlength="12" required></label>
+            <button>Admin-Konto anlegen</button>
+        </form>
+    <?php else: ?>
+        <h2>Login</h2>
+        <form method="post">
+            <input type="hidden" name="action" value="login">
+            <label>Benutzername<input name="username" required></label>
+            <label>Passwort<input type="password" name="password" required></label>
+            <button>Anmelden</button>
+        </form>
+    <?php endif; ?>
 </section>
 <?php else: ?>
 <section class="card">

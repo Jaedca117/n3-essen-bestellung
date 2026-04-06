@@ -32,13 +32,11 @@ final class AppService
         }
 
         $activePaypalLink = $this->activePaypalLinkForWeekday($settings, $weekday);
-        $settings['paypal_link'] = $activePaypalLink['url'] ?? '';
 
         return [
             'settings' => $settings,
             'phase' => $phase,
             'day_disabled' => $dayDisabled,
-            'now' => $now,
             'voting_end' => $votingEnd,
             'order_end' => $orderEnd,
             'paypal_enabled' => isset($activePaypalLink['url']) && trim((string) $activePaypalLink['url']) !== '',
