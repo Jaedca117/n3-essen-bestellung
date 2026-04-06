@@ -704,6 +704,7 @@ if ($isAdmin && $isSuperAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_PO
 $settings = $repo->getSettings();
 $categories = $repo->categories();
 $suppliers = $repo->allSuppliers();
+$supplierRatingStats = $repo->supplierRatingStatsBySupplierId();
 $orders = $repo->orders();
 $adminUsers = $isSuperAdmin ? $repo->allAdminUsers() : [];
 $auditLogs = $isSuperAdmin ? $repo->auditLogsLastDays(7) : [];
@@ -836,12 +837,18 @@ if ($todayDayDisabled):
     <button>💾 Lieferant speichern</button></form>
 </details>
 <ul class="admin-collapsible-list"><?php foreach ($suppliers as $s): ?><li>
+    <?php $ratingStats = $supplierRatingStats[(int) $s['id']] ?? ['count' => 0, 'sum' => 0, 'avg' => 0.0]; ?>
     <details class="admin-collapsible-item">
         <summary>
             <span>#<?= (int) $s['id'] ?> · <?= e((string) $s['name']) ?></span>
-            <span><?= ((int) $s['is_active'] === 1) ? 'Aktiv' : 'Inaktiv' ?></span>
+            <span>
+                <?= ((int) $s['is_active'] === 1) ? 'Aktiv' : 'Inaktiv' ?>
+                · <?= (int) $ratingStats['count'] ?> Bewertung<?= ((int) $ratingStats['count'] === 1) ? '' : 'en' ?>
+                · Ø <?= number_format((float) $ratingStats['avg'], 2, ',', '.') ?>/5
+            </span>
         </summary>
         <div class="admin-collapsible-content">
+            <p class="muted">Bewertungen: <strong><?= (int) $ratingStats['count'] ?></strong> · Gesamtbewertung: <strong><?= (int) $ratingStats['sum'] ?></strong> Sterne (Ø <?= number_format((float) $ratingStats['avg'], 2, ',', '.') ?>/5)</p>
             <form method="post">
                 <input type="hidden" name="action" value="save_supplier">
                 <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">

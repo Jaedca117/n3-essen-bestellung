@@ -129,6 +129,20 @@ final class AppRepository
             $this->pdo->exec('ALTER TABLE ' . $this->t('votes') . ' ADD KEY idx_vote_token (vote_token)');
         }
 
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('supplier_ratings') . ' (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            vote_token VARCHAR(64) NOT NULL,
+            supplier_id INT UNSIGNED NOT NULL,
+            rating TINYINT UNSIGNED NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uniq_rating_token_supplier (vote_token, supplier_id),
+            KEY idx_rating_supplier_id (supplier_id),
+            KEY idx_rating_vote_token (vote_token),
+            FOREIGN KEY (supplier_id) REFERENCES ' . $this->t('suppliers') . ' (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('orders') . ' (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             public_id VARCHAR(12) NOT NULL,
@@ -357,6 +371,7 @@ final class AppRepository
         $this->pdo->beginTransaction();
         try {
             $this->pdo->prepare('DELETE FROM ' . $this->t('votes') . ' WHERE supplier_id=:id')->execute([':id' => $id]);
+            $this->pdo->prepare('DELETE FROM ' . $this->t('supplier_ratings') . ' WHERE supplier_id=:id')->execute([':id' => $id]);
             $this->pdo->prepare('DELETE FROM ' . $this->t('suppliers') . ' WHERE id=:id')->execute([':id' => $id]);
             $this->pdo->commit();
         } catch (Throwable $e) {
@@ -407,6 +422,45 @@ final class AppRepository
         $rows = $this->pdo->query($sql)->fetchAll();
         $weekdayKey = current_weekday_key();
         return array_values(array_filter($rows, static fn(array $supplier): bool => supplier_available_on_weekday($supplier, $weekdayKey)));
+    }
+
+    public function hasRatingForTokenAndSupplier(string $token, int $supplierId): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT 1 FROM ' . $this->t('supplier_ratings') . ' WHERE vote_token=:t AND supplier_id=:s LIMIT 1');
+        $stmt->execute([':t' => $token, ':s' => $supplierId]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public function recordSupplierRating(string $token, int $supplierId, int $rating): void
+    {
+        $sql = 'INSERT INTO ' . $this->t('supplier_ratings') . ' (vote_token, supplier_id, rating, created_at, updated_at)
+                VALUES (:t,:s,:r,NOW(),NOW())';
+        $this->pdo->prepare($sql)->execute([
+            ':t' => $token,
+            ':s' => $supplierId,
+            ':r' => $rating,
+        ]);
+    }
+
+    public function supplierRatingStatsBySupplierId(): array
+    {
+        $sql = 'SELECT supplier_id, COUNT(*) AS rating_count, SUM(rating) AS rating_sum, AVG(rating) AS rating_avg
+                FROM ' . $this->t('supplier_ratings') . '
+                GROUP BY supplier_id';
+        $rows = $this->pdo->query($sql)->fetchAll();
+        $stats = [];
+        foreach ($rows as $row) {
+            $supplierId = (int) ($row['supplier_id'] ?? 0);
+            if ($supplierId <= 0) {
+                continue;
+            }
+            $stats[$supplierId] = [
+                'count' => (int) ($row['rating_count'] ?? 0),
+                'sum' => (int) ($row['rating_sum'] ?? 0),
+                'avg' => (float) ($row['rating_avg'] ?? 0.0),
+            ];
+        }
+        return $stats;
     }
 
     public function winner(): ?array
@@ -543,6 +597,13 @@ final class AppRepository
         $stmt = $this->pdo->prepare('SELECT * FROM ' . $this->t('orders') . ' WHERE created_by_token=:token ORDER BY created_at ASC');
         $stmt->execute([':token' => $ownerToken]);
         return $stmt->fetchAll();
+    }
+
+    public function hasOrdersByOwnerToken(string $ownerToken): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT 1 FROM ' . $this->t('orders') . ' WHERE created_by_token=:token LIMIT 1');
+        $stmt->execute([':token' => $ownerToken]);
+        return (bool) $stmt->fetchColumn();
     }
 
     public function orderTotalsByOwnerToken(string $ownerToken): array
