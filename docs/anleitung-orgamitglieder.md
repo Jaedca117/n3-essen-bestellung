@@ -32,7 +32,7 @@ Empfohlener Ablauf:
 
 - Öffentliche Liste regelmäßig prüfen.
 - Auf fehlerhafte Einträge reagieren (z. B. doppelte Bestellungen).
-- Bei Bedarf manuell schließen (`order_closed`), wenn keine neuen Bestellungen mehr zugelassen werden sollen.
+- Nach Ende der Bestellphase sind automatisch keine neuen Bestellungen mehr möglich.
 
 ## 5) Druckansicht nutzen
 
@@ -66,5 +66,5 @@ Wichtig:
 
 1. Seite nicht erreichbar → Hosting/Webserver/DB prüfen.
 2. Login geht nicht → Passwort-Hash in der DB prüfen.
-3. Keine neuen Einträge → Uhrzeiten und `order_closed` prüfen.
+3. Keine neuen Einträge → Uhrzeiten und Tagesdeaktivierung für den Wochentag prüfen.
 4. Falsche Summen → Eingaben in der Bestellliste kontrollieren und ggf. korrigieren.

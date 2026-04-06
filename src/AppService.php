@@ -20,9 +20,8 @@ final class AppService
         $votingEnd = new DateTimeImmutable($today . ' ' . $this->timeSettingForDay($settings, 'voting_end_time', $weekday, '16:00:00'));
         $orderEnd = new DateTimeImmutable($today . ' ' . $this->timeSettingForDay($settings, 'order_end_time', $weekday, '18:00:00'));
 
-        $orderClosed = ($settings['order_closed'] ?? '0') === '1';
         $dayDisabledByWeekday = ($settings['day_disabled_' . $weekday] ?? '0') === '1';
-        $dayDisabled = $orderClosed || $dayDisabledByWeekday;
+        $dayDisabled = $dayDisabledByWeekday;
 
         if ($now < $votingEnd) {
             $phase = 'voting';
