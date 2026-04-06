@@ -146,7 +146,7 @@ INSERT INTO `n3_essen_settings` (`setting_key`, `setting_value`) VALUES
 ('manual_winner_supplier_id', ''),
 ('reset_daily_note', '1'),
 ('last_reset_at', '1970-01-01 00:00:00')
-ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value);
+ON DUPLICATE KEY UPDATE setting_value=setting_value;
 
 INSERT INTO `n3_essen_categories` (`name`) VALUES
 ('Italienisch'), ('Griechisch'), ('Burger'), ('Döner'), ('Asiatisch')
