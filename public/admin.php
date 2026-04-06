@@ -737,7 +737,7 @@ $paypalLinks = paypal_link_options($settings);
 <section class="card"><h2>Aktuelle Bestellung</h2>
 <?php
 $todayWeekday = current_weekday_key();
-$todayDayDisabled = (($settings['day_disabled_' . $todayWeekday] ?? '0') === '1') || (($settings['order_closed'] ?? '0') === '1');
+$todayDayDisabled = (($settings['day_disabled_' . $todayWeekday] ?? '0') === '1');
 if ($todayDayDisabled):
 ?>
 <p class="notice error">Für heute ist die Bestellung deaktiviert.</p>

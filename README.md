@@ -191,7 +191,6 @@ Die Anwendung bestimmt den Status aus aktueller Uhrzeit + Einstellungen:
 
 - `voting_end_time` → Ende Abstimmung
 - `order_end_time` → Ende Bestellphase
-- `order_closed` → manuelles Schließen durch Admin
 
 ### Reset ohne Cron
 
