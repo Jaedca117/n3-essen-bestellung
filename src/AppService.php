@@ -114,13 +114,18 @@ final class AppService
             return null;
         }
 
-        $dayActiveId = trim((string) ($settings['paypal_link_active_id_' . $weekday] ?? ''));
-        if ($dayActiveId !== '') {
+        $dayKey = 'paypal_link_active_id_' . $weekday;
+        if (array_key_exists($dayKey, $settings)) {
+            $dayActiveId = trim((string) $settings[$dayKey]);
+            if ($dayActiveId === '') {
+                return null;
+            }
             foreach ($paypalLinks as $entry) {
                 if ($entry['id'] === $dayActiveId) {
                     return $entry;
                 }
             }
+            return null;
         }
 
         $fallbackId = trim((string) ($settings['paypal_link_active_id'] ?? ''));

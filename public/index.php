@@ -228,6 +228,11 @@ $voteResults = $repo->voteResults();
 $orders = $repo->ordersByOwnerToken((string) $_COOKIE['vote_token']);
 $totals = $repo->orderTotalsByOwnerToken((string) $_COOKIE['vote_token']);
 $activePaypalLink = active_paypal_link($settings);
+$displayTotals = $totals;
+if (!$state['paypal_enabled']) {
+    $displayTotals['paypal'] = 0.0;
+    $displayTotals['all'] = (float) $displayTotals['bar'];
+}
 
 $groupedSuppliers = [];
 foreach ($suppliers as $supplier) {
@@ -342,6 +347,7 @@ if ($dayDisabledNotice === '') {
                         <?php if ($state['paypal_enabled']): ?><option value="paypal" <?= (($editOrder['payment_method'] ?? '') === 'paypal') ? 'selected' : '' ?>>PayPal</option><?php endif; ?>
                     </select>
                 </label>
+                <?php if (!$state['paypal_enabled']): ?><p class="muted">Heute ist nur BAR-Zahlung möglich.</p><?php endif; ?>
                 <label>Bemerkung<input type="text" name="note" maxlength="200" value="<?= e((string) ($editOrder['note'] ?? '')) ?>"></label>
                 <?php if ($editOrder): ?><input type="hidden" name="order_id" value="<?= (int) $editOrder['id'] ?>"><?php endif; ?>
                 <label class="check"><input type="checkbox" name="confirmed" value="1" required> Ich bestätige, dass ich verbindlich bestellen möchte.</label>
@@ -383,7 +389,7 @@ if ($dayDisabledNotice === '') {
                 </div>
             <?php endif; ?>
             <?php if (!$orders): ?><p class="muted">Du hast noch keine Bestellung erfasst.</p><?php endif; ?>
-            <p><strong>Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> € · <strong>Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>
+            <p><strong>Gesamt:</strong> <?= number_format((float) $displayTotals['all'], 2, ',', '.') ?> € · <strong>Bar:</strong> <?= number_format((float) $displayTotals['bar'], 2, ',', '.') ?> €<?php if ($state['paypal_enabled']): ?> · <strong>PayPal:</strong> <?= number_format((float) $displayTotals['paypal'], 2, ',', '.') ?> €<?php endif; ?></p>
             <?php if ($activePaypalLink && $state['paypal_enabled'] && (float) $totals['paypal'] > 0): ?><p><a href="<?= e($activePaypalLink['url']) ?>" target="_blank" rel="noopener">PayPal-Link: <?= e($activePaypalLink['name']) ?></a></p><?php endif; ?>
         </section>
     <?php endif; ?>
