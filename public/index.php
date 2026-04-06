@@ -357,17 +357,31 @@ if ($dayDisabledNotice === '') {
     <?php if (!$state['day_disabled'] && $state['phase'] !== 'voting'): ?>
         <section class="card">
             <h2>Meine Bestellungen</h2>
-            <table>
-                <thead><tr><th>Name</th><th>#</th><th>Gericht</th><th>Größe</th><th>Preis</th><th>Zahlung</th><th>Hinweis</th><th>Bezahlt</th></tr></thead>
-                <tbody>
-                <?php foreach ($orders as $order): ?>
-                    <tr><td><?= e((string) $order['nickname']) ?></td><td><?= e((string) $order['dish_no']) ?></td><td><?= e((string) $order['dish_name']) ?></td><td><?php if (!empty($order['dish_size'])): ?><span class="dish-size"><?= e((string) $order['dish_size']) ?></span><?php else: ?>-<?php endif; ?></td><td><?= number_format((float) $order['price'], 2, ',', '.') ?> €</td><td><?= e(strtoupper((string) $order['payment_method'])) ?></td><td><?= e((string) ($order['note'] ?: '-')) ?></td><td><?= ((int) ($order['is_paid'] ?? 0) === 1) ? 'Ja' : 'Nein' ?></td></tr>
-                    <?php if ($state['phase'] === 'ordering'): ?>
-                        <tr><td colspan="8"><a href="?edit_id=<?= (int) $order['id'] ?>">Diese Bestellung bearbeiten/löschen</a></td></tr>
-                    <?php endif; ?>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
+            <?php if ($orders): ?>
+                <div class="my-orders-list">
+                    <?php foreach ($orders as $order): ?>
+                        <details class="my-order-item">
+                            <summary>
+                                <span class="my-order-title"><?= e((string) $order['dish_name']) ?></span>
+                                <span class="my-order-price"><?= number_format((float) $order['price'], 2, ',', '.') ?> €</span>
+                            </summary>
+                            <div class="my-order-content">
+                                <dl>
+                                    <div><dt>Name</dt><dd><?= e((string) $order['nickname']) ?></dd></div>
+                                    <div><dt>Essensnummer</dt><dd><?= e((string) ($order['dish_no'] !== '' ? $order['dish_no'] : '-')) ?></dd></div>
+                                    <div><dt>Größe</dt><dd><?php if (!empty($order['dish_size'])): ?><span class="dish-size"><?= e((string) $order['dish_size']) ?></span><?php else: ?>-<?php endif; ?></dd></div>
+                                    <div><dt>Zahlung</dt><dd><?= e(strtoupper((string) $order['payment_method'])) ?></dd></div>
+                                    <div><dt>Hinweis</dt><dd><?= e((string) ($order['note'] ?: '-')) ?></dd></div>
+                                    <div><dt>Bezahlt</dt><dd><?= ((int) ($order['is_paid'] ?? 0) === 1) ? 'Ja' : 'Nein' ?></dd></div>
+                                </dl>
+                                <?php if ($state['phase'] === 'ordering'): ?>
+                                    <p class="my-order-actions"><a href="?edit_id=<?= (int) $order['id'] ?>">Diese Bestellung bearbeiten/löschen</a></p>
+                                <?php endif; ?>
+                            </div>
+                        </details>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
             <?php if (!$orders): ?><p class="muted">Du hast noch keine Bestellung erfasst.</p><?php endif; ?>
             <p><strong>Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> € · <strong>Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>
             <?php if ($activePaypalLink && $state['paypal_enabled'] && (float) $totals['paypal'] > 0): ?><p><a href="<?= e($activePaypalLink['url']) ?>" target="_blank" rel="noopener">PayPal-Link: <?= e($activePaypalLink['name']) ?></a></p><?php endif; ?>
