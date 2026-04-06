@@ -163,27 +163,11 @@ final class AppRepository
             $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD COLUMN dish_size VARCHAR(40) NOT NULL DEFAULT "" AFTER dish_name');
         }
         if (!$this->columnExists('orders', 'created_by_token')) {
-            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD COLUMN created_by_token VARCHAR(64) NOT NULL DEFAULT "" AFTER edit_token');
+            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD COLUMN created_by_token VARCHAR(64) NOT NULL DEFAULT "" AFTER id');
             $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD KEY idx_created_by_token (created_by_token)');
         }
         if (!$this->columnExists('orders', 'is_paid')) {
             $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD COLUMN is_paid TINYINT(1) NOT NULL DEFAULT 0 AFTER payment_method');
-        }
-
-        if ($this->columnExists('orders', 'public_id')) {
-            if ($this->indexExists('orders', 'uniq_public_id')) {
-                $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' DROP INDEX uniq_public_id');
-            }
-            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' DROP COLUMN public_id');
-        }
-        if ($this->columnExists('orders', 'edit_token')) {
-            if ($this->indexExists('orders', 'uniq_edit_token')) {
-                $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' DROP INDEX uniq_edit_token');
-            }
-            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' DROP COLUMN edit_token');
-        }
-        if ($this->columnExists('orders', 'confirmed')) {
-            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' DROP COLUMN confirmed');
         }
 
         if ($this->columnDataType('orders', 'dish_size') === 'enum') {
@@ -231,8 +215,6 @@ final class AppRepository
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
         $this->pdo->exec('INSERT IGNORE INTO ' . $this->t('settings') . ' (setting_key, setting_value) VALUES
-            ("voting_end_time", "16:00:00"),
-            ("order_end_time", "18:00:00"),
             ("daily_reset_time", "10:30:00"),
             ("voting_end_time_monday", "16:00"),
             ("voting_end_time_tuesday", "16:00"),
@@ -255,9 +237,7 @@ final class AppRepository
             ("day_disabled_friday", "0"),
             ("day_disabled_saturday", "0"),
             ("day_disabled_sunday", "0"),
-            ("paypal_link", ""),
             ("paypal_links", "[]"),
-            ("paypal_link_active_id", ""),
             ("daily_note", ""),
             ("header_subtitle", ""),
             ("day_disabled_notice", "Bestellungen sind heute deaktiviert."),
@@ -653,35 +633,6 @@ final class AppRepository
             }
             throw $e;
         }
-    }
-
-    public function cleanupDailyResidualData(): int
-    {
-        $this->pdo->beginTransaction();
-        try {
-            $deleted = 0;
-            $deleted += $this->deleteRowsByTableIfExists('votes');
-            $deleted += $this->deleteRowsByTableIfExists('supplier_ratings');
-            $deleted += $this->deleteRowsByTableIfExists('orders');
-            $deleted += $this->deleteRowsByTableIfExists('rate_limits');
-            $this->saveSetting('manual_winner_supplier_id', '');
-            $this->saveSetting('last_reset_at', (new DateTimeImmutable('now'))->format('Y-m-d H:i:s'));
-            $this->pdo->commit();
-            return $deleted;
-        } catch (Throwable $e) {
-            if ($this->pdo->inTransaction()) {
-                $this->pdo->rollBack();
-            }
-            throw $e;
-        }
-    }
-
-    private function deleteRowsByTableIfExists(string $name): int
-    {
-        if (!$this->tableExists($name)) {
-            return 0;
-        }
-        return (int) $this->pdo->exec('DELETE FROM ' . $this->t($name));
     }
 
     public function findAdminByUsername(string $username): ?array

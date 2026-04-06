@@ -17,8 +17,8 @@ final class AppService
         $now = new DateTimeImmutable('now');
         $today = $now->format('Y-m-d');
         $weekday = current_weekday_key();
-        $votingEnd = new DateTimeImmutable($today . ' ' . $this->timeSettingForDay($settings, 'voting_end_time', $weekday, '16:00:00'));
-        $orderEnd = new DateTimeImmutable($today . ' ' . $this->timeSettingForDay($settings, 'order_end_time', $weekday, '18:00:00'));
+        $votingEnd = new DateTimeImmutable($today . ' ' . $this->timeSettingForDay($settings, 'voting_end_time_' . $weekday, '16:00:00'));
+        $orderEnd = new DateTimeImmutable($today . ' ' . $this->timeSettingForDay($settings, 'order_end_time_' . $weekday, '18:00:00'));
 
         $dayDisabledByWeekday = ($settings['day_disabled_' . $weekday] ?? '0') === '1';
         $dayDisabled = $dayDisabledByWeekday;
@@ -32,7 +32,6 @@ final class AppService
         }
 
         $activePaypalLink = $this->activePaypalLinkForWeekday($settings, $weekday);
-        $settings['paypal_link_active_id'] = $activePaypalLink['id'] ?? '';
         $settings['paypal_link'] = $activePaypalLink['url'] ?? '';
 
         return [
@@ -90,18 +89,13 @@ final class AppService
         return $this->repo->winner();
     }
 
-    private function timeSettingForDay(array $settings, string $baseKey, string $weekday, string $fallback): string
+    private function timeSettingForDay(array $settings, string $dayKey, string $fallback): string
     {
-        $dayValue = trim((string) ($settings[$baseKey . '_' . $weekday] ?? ''));
+        $dayValue = trim((string) ($settings[$dayKey] ?? ''));
         if ($dayValue !== '') {
             return strlen($dayValue) === 5 ? ($dayValue . ':00') : $dayValue;
         }
-
-        $value = trim((string) ($settings[$baseKey] ?? $fallback));
-        if ($value === '') {
-            return $fallback;
-        }
-        return strlen($value) === 5 ? ($value . ':00') : $value;
+        return $fallback;
     }
 
     /**
@@ -128,16 +122,7 @@ final class AppService
             return null;
         }
 
-        $fallbackId = trim((string) ($settings['paypal_link_active_id'] ?? ''));
-        if ($fallbackId !== '') {
-            foreach ($paypalLinks as $entry) {
-                if ($entry['id'] === $fallbackId) {
-                    return $entry;
-                }
-            }
-        }
-
-        return $paypalLinks[0];
+        return null;
     }
 
     /**
@@ -147,15 +132,7 @@ final class AppService
     {
         $raw = (string) ($settings['paypal_links'] ?? '');
         if ($raw === '') {
-            $legacyLink = trim((string) ($settings['paypal_link'] ?? ''));
-            if ($legacyLink === '') {
-                return [];
-            }
-            return [[
-                'id' => 'legacy',
-                'name' => 'Standard',
-                'url' => $legacyLink,
-            ]];
+            return [];
         }
 
         $decoded = json_decode($raw, true);
