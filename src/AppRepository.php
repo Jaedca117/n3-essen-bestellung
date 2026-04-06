@@ -663,6 +663,7 @@ final class AppRepository
         $this->pdo->beginTransaction();
         try {
             $this->deleteAllRowsIfTableExists('votes');
+            $this->deleteAllRowsIfTableExists('supplier_ratings');
             $this->deleteAllRowsIfTableExists('order_items');
             $this->deleteAllRowsIfTableExists('orders');
             $this->saveSetting('order_closed', '0');
@@ -678,6 +679,37 @@ final class AppRepository
             }
             throw $e;
         }
+    }
+
+    public function cleanupDailyResidualData(): int
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $deleted = 0;
+            $deleted += $this->deleteRowsByTableIfExists('votes');
+            $deleted += $this->deleteRowsByTableIfExists('supplier_ratings');
+            $deleted += $this->deleteRowsByTableIfExists('order_items');
+            $deleted += $this->deleteRowsByTableIfExists('orders');
+            $deleted += $this->deleteRowsByTableIfExists('rate_limits');
+            $this->saveSetting('order_closed', '0');
+            $this->saveSetting('manual_winner_supplier_id', '');
+            $this->saveSetting('last_reset_at', (new DateTimeImmutable('now'))->format('Y-m-d H:i:s'));
+            $this->pdo->commit();
+            return $deleted;
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    private function deleteRowsByTableIfExists(string $name): int
+    {
+        if (!$this->tableExists($name)) {
+            return 0;
+        }
+        return (int) $this->pdo->exec('DELETE FROM ' . $this->t($name));
     }
 
     public function findAdminByUsername(string $username): ?array

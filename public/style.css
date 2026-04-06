@@ -320,6 +320,18 @@ th{color:#dbe4ff;background:#171f3b}
   margin-left:auto;
 }
 
+.admin-maintenance-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.6rem;
+}
+.admin-maintenance-actions .inline{
+  display:block;
+}
+.admin-maintenance-actions button{
+  width:auto;
+}
+
 .rating-form{
   margin-top:.5rem;
 }
