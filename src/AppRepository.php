@@ -283,7 +283,7 @@ final class AppRepository
             return strlen($value) === 5 ? $value : substr($value, 0, 8);
         }
 
-        if (str_starts_with($key, 'day_disabled_') || $key === 'reset_daily_note') {
+        if (preg_match('/^day_disabled_(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/', $key) === 1 || $key === 'reset_daily_note') {
             return $value === '1' ? '1' : '0';
         }
 
