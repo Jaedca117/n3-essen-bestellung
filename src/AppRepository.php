@@ -664,7 +664,6 @@ final class AppRepository
         try {
             $this->deleteAllRowsIfTableExists('votes');
             $this->deleteAllRowsIfTableExists('supplier_ratings');
-            $this->deleteAllRowsIfTableExists('order_items');
             $this->deleteAllRowsIfTableExists('orders');
             $this->saveSetting('order_closed', '0');
             $this->saveSetting('manual_winner_supplier_id', '');
@@ -688,7 +687,6 @@ final class AppRepository
             $deleted = 0;
             $deleted += $this->deleteRowsByTableIfExists('votes');
             $deleted += $this->deleteRowsByTableIfExists('supplier_ratings');
-            $deleted += $this->deleteRowsByTableIfExists('order_items');
             $deleted += $this->deleteRowsByTableIfExists('orders');
             $deleted += $this->deleteRowsByTableIfExists('rate_limits');
             $this->saveSetting('order_closed', '0');
