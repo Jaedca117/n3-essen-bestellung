@@ -173,6 +173,59 @@ th{color:#dbe4ff;background:#171f3b}
 
 
 .dish-size{display:inline-block;padding:.2rem .5rem;border-radius:999px;background:rgba(255,138,0,.22);border:1px solid rgba(255,138,0,.55);color:#ffd9a1;font-size:.82rem;font-weight:600}
+.my-orders-list{
+  display:grid;
+  gap:.7rem;
+  margin:.6rem 0 .8rem;
+}
+.my-order-item{
+  border:1px solid #39466d;
+  border-radius:10px;
+  background:#0f152b;
+  overflow:hidden;
+}
+.my-order-item summary{
+  cursor:pointer;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  gap:.5rem;
+  padding:.7rem .8rem;
+  font-weight:600;
+}
+.my-order-item[open] summary{
+  border-bottom:1px solid #2e395d;
+}
+.my-order-title{
+  color:#f3f6ff;
+}
+.my-order-price{
+  color:#ffd9a1;
+}
+.my-order-content{
+  padding:.8rem;
+}
+.my-order-content dl{
+  margin:0;
+  display:grid;
+  gap:.45rem;
+}
+.my-order-content dl div{
+  display:grid;
+  grid-template-columns:minmax(120px, 170px) 1fr;
+  gap:.5rem;
+  align-items:start;
+}
+.my-order-content dt{
+  color:var(--text-muted);
+  font-weight:600;
+}
+.my-order-content dd{
+  margin:0;
+}
+.my-order-actions{
+  margin:.75rem 0 0;
+}
 
 .admin-link-bottom{
   margin:1.2rem 0 0;
