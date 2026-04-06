@@ -37,6 +37,7 @@ final class AppService
         return [
             'settings' => $settings,
             'phase' => $phase,
+            'day_disabled' => $orderClosed,
             'now' => $now,
             'voting_end' => $votingEnd,
             'order_end' => $orderEnd,

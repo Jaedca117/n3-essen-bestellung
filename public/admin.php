@@ -106,7 +106,9 @@ if (!array_key_exists($adminSection, $adminSections)) {
 
 $auditActionLabels = [
     'save_current_settings' => 'Aktuelle Bestellung gespeichert',
-    'save_page_settings' => 'Seiten-Einstellungen gespeichert',
+    'save_time_settings' => 'Zeiten gespeichert',
+    'save_paypal_settings' => 'PayPal gespeichert',
+    'save_general_settings' => 'Einstellungen gespeichert',
     'save_category' => 'Kategorie gespeichert',
     'delete_category' => 'Kategorie gelöscht',
     'save_supplier' => 'Lieferant gespeichert',
@@ -309,7 +311,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
     } else {
         $dailyNote = trim((string) ($_POST['daily_note'] ?? ''));
         $repo->saveSetting('daily_note', $dailyNote);
-        $repo->saveSetting('order_closed', isset($_POST['order_closed']) ? '1' : '0');
+        $repo->saveSetting('reset_daily_note', isset($_POST['reset_daily_note']) ? '1' : '0');
         $manualWinnerSupplierId = trim((string) ($_POST['manual_winner_supplier_id'] ?? ''));
         $supplierIds = array_map(static fn(array $supplier): string => (string) $supplier['id'], $repo->allSuppliers());
         if ($manualWinnerSupplierId !== '' && !in_array($manualWinnerSupplierId, $supplierIds, true)) {
@@ -321,7 +323,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
         if ($error === null) {
             $message = 'Bereich "Aktuelle Bestellung" gespeichert.';
             record_audit_log($repo, $currentAdmin, 'save_current_settings', 'settings', 'current', [
-                'order_closed' => isset($_POST['order_closed']) ? '1' : '0',
+                'reset_daily_note' => isset($_POST['reset_daily_note']) ? '1' : '0',
                 'manual_winner_supplier_id' => $manualWinnerSupplierId,
             ]);
             set_admin_flash('success', $message);
@@ -330,7 +332,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
     }
 }
 
-if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_page_settings')) {
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_time_settings')) {
     if (!verify_csrf_token($_POST['csrf'] ?? null)) {
         $error = 'Ungültiges CSRF-Token.';
     } else {
@@ -348,10 +350,43 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
                 normalized_hhmm((string) ($_POST['order_end_time_' . $weekdayKey] ?? ''), '18:00')
             );
         }
-        $repo->saveSetting('daily_reset_time', normalized_hhmm((string) ($_POST['daily_reset_time'] ?? ''), '10:30'));
-        $repo->saveSetting('header_subtitle', trim((string) ($_POST['header_subtitle'] ?? '')));
-        $repo->saveSetting('manual_winner_supplier_id', trim((string) ($_POST['manual_winner_supplier_id'] ?? '')));
-        $repo->saveSetting('reset_daily_note', isset($_POST['reset_daily_note']) ? '1' : '0');
+        $repo->saveSetting('order_closed', isset($_POST['order_closed']) ? '1' : '0');
+
+        $existingPaypalIds = [];
+        foreach (paypal_link_options($repo->getSettings()) as $entry) {
+            $existingPaypalIds[$entry['id']] = true;
+        }
+        foreach (weekday_labels() as $weekdayKey => $_) {
+            if (!in_array($weekdayKey, $editableWeekdays, true)) {
+                continue;
+            }
+            $selectedPaypalId = trim((string) ($_POST['paypal_link_active_id_' . $weekdayKey] ?? ''));
+            if ($selectedPaypalId !== '' && !isset($existingPaypalIds[$selectedPaypalId])) {
+                $error = 'PayPal-Account für ' . weekday_labels()[$weekdayKey] . ' ist ungültig.';
+                break;
+            }
+            $repo->saveSetting('paypal_link_active_id_' . $weekdayKey, $selectedPaypalId);
+        }
+
+        if ($error !== null) {
+            $state = $service->runtimeState();
+            $settings = $repo->getSettings();
+        } else {
+        $message = 'Bereich "Zeiten" gespeichert.';
+        record_audit_log($repo, $currentAdmin, 'save_time_settings', 'settings', 'times', [
+            'order_closed' => isset($_POST['order_closed']) ? '1' : '0',
+        ]);
+        set_admin_flash('success', $message);
+        redirect_back_to_admin();
+        }
+    }
+}
+
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_paypal_settings')) {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges CSRF-Token.';
+    } else {
+        $editableWeekdays = $currentAdmin ? effective_editable_weekdays($currentAdmin) : [];
 
         $paypalLinkIds = $_POST['paypal_link_ids'] ?? [];
         $paypalLinkNames = $_POST['paypal_link_names'] ?? [];
@@ -377,34 +412,49 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             $paypalLinkIdsByKey[$entry['id']] = true;
         }
 
-        foreach (weekday_labels() as $weekdayKey => $_) {
-            if (!in_array($weekdayKey, $editableWeekdays, true)) {
-                continue;
-            }
-            $selectedPaypalId = trim((string) ($_POST['paypal_link_active_id_' . $weekdayKey] ?? ''));
-            if ($selectedPaypalId !== '' && !isset($paypalLinkIdsByKey[$selectedPaypalId])) {
-                $error = 'PayPal-Account für ' . weekday_labels()[$weekdayKey] . ' ist ungültig.';
-                break;
-            }
-            $repo->saveSetting('paypal_link_active_id_' . $weekdayKey, $selectedPaypalId);
-        }
-
         if ($error === null) {
             $fallbackPaypalId = $paypalLinks[0]['id'] ?? '';
             $fallbackPaypalUrl = $paypalLinks[0]['url'] ?? '';
             $repo->saveSetting('paypal_links', json_encode($paypalLinks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
             $repo->saveSetting('paypal_link_active_id', $fallbackPaypalId);
             $repo->saveSetting('paypal_link', $fallbackPaypalUrl);
+            $updatedSettings = $repo->getSettings();
+            foreach (weekday_labels() as $weekdayKey => $_) {
+                if (!in_array($weekdayKey, $editableWeekdays, true)) {
+                    continue;
+                }
+                $dayActiveId = trim((string) ($updatedSettings['paypal_link_active_id_' . $weekdayKey] ?? ''));
+                if ($dayActiveId !== '' && !isset($paypalLinkIdsByKey[$dayActiveId])) {
+                    $repo->saveSetting('paypal_link_active_id_' . $weekdayKey, '');
+                }
+            }
 
-            $message = 'Bereich "Seiten-Einstellungen" gespeichert.';
-            record_audit_log($repo, $currentAdmin, 'save_page_settings', 'settings', 'global', [
-                'daily_reset_time' => normalized_hhmm((string) ($_POST['daily_reset_time'] ?? ''), '10:30'),
+            $message = 'Bereich "PayPal" gespeichert.';
+            record_audit_log($repo, $currentAdmin, 'save_paypal_settings', 'settings', 'paypal', [
                 'paypal_links_count' => count($paypalLinks),
             ]);
             set_admin_flash('success', $message);
             redirect_back_to_admin();
         }
         $state = $service->runtimeState();
+    }
+}
+
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'save_general_settings')) {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges CSRF-Token.';
+    } elseif (!$isSuperAdmin) {
+        $error = 'Nur Admins dürfen diesen Bereich bearbeiten.';
+    } else {
+        $repo->saveSetting('daily_reset_time', normalized_hhmm((string) ($_POST['daily_reset_time'] ?? ''), '10:30'));
+        $repo->saveSetting('header_subtitle', trim((string) ($_POST['header_subtitle'] ?? '')));
+        $repo->saveSetting('day_disabled_notice', trim((string) ($_POST['day_disabled_notice'] ?? '')));
+        $message = 'Bereich "Einstellungen" gespeichert.';
+        record_audit_log($repo, $currentAdmin, 'save_general_settings', 'settings', 'general', [
+            'daily_reset_time' => normalized_hhmm((string) ($_POST['daily_reset_time'] ?? ''), '10:30'),
+        ]);
+        set_admin_flash('success', $message);
+        redirect_back_to_admin();
     }
 }
 
@@ -667,6 +717,7 @@ $paypalLinks = paypal_link_options($settings);
 <form method="post"><input type="hidden" name="action" value="save_current_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
 <p class="muted">Druckansicht: <a href="print.php">print.php öffnen</a></p>
 <label>Tageshinweis<input name="daily_note" maxlength="200" value="<?= e((string) ($settings['daily_note'] ?? '')) ?>"></label>
+<label class="check"><input type="checkbox" name="reset_daily_note" <?= (($settings['reset_daily_note'] ?? '1') === '1') ? 'checked' : '' ?>> Tageshinweis beim Reset löschen</label>
 <label>Manueller Gewinner
     <select name="manual_winner_supplier_id">
         <option value="">-- Automatisch per Abstimmung --</option>
@@ -677,7 +728,6 @@ $paypalLinks = paypal_link_options($settings);
         <?php endforeach; ?>
     </select>
 </label>
-<label class="check"><input type="checkbox" name="order_closed" <?= (($settings['order_closed'] ?? '0') === '1') ? 'checked' : '' ?>> Bestellung abgeschlossen</label>
 <button>Speichern</button></form>
 </section>
 
@@ -794,7 +844,8 @@ $paypalLinks = paypal_link_options($settings);
 
 <?php if ($adminSection === 'settings'): ?>
 <section class="card"><h2>Seiten-Einstellungen</h2>
-<form method="post"><input type="hidden" name="action" value="save_page_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+<h3>Zeiten</h3>
+<form method="post"><input type="hidden" name="action" value="save_time_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
 <?php $editableWeekdaysCurrent = $currentAdmin ? effective_editable_weekdays($currentAdmin) : array_keys(weekday_labels()); ?>
 <?php if (count($editableWeekdaysCurrent) < count(weekday_labels())): ?>
 <p class="muted">Du kannst aktuell nur diese Tage bearbeiten: <?= e(implode(', ', array_map(static fn(string $key): string => weekday_labels()[$key] ?? $key, $editableWeekdaysCurrent))) ?>.</p>
@@ -829,28 +880,50 @@ $paypalLinks = paypal_link_options($settings);
     </details>
     <?php endforeach; ?>
 </div>
+<label class="check"><input type="checkbox" name="order_closed" <?= (($settings['order_closed'] ?? '0') === '1') ? 'checked' : '' ?>> Bestellung für heute komplett deaktivieren</label>
+<button>Zeiten speichern</button></form>
+
+<h3>PayPal</h3>
+<form method="post"><input type="hidden" name="action" value="save_paypal_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+<ul class="admin-collapsible-list">
+<?php foreach ($paypalLinks as $entry): ?>
+    <li>
+        <details class="admin-collapsible-item">
+            <summary>
+                <span><?= e($entry['name']) ?></span>
+                <span class="muted"><?= e($entry['url']) ?></span>
+            </summary>
+            <div class="admin-collapsible-content">
+                <input type="hidden" name="paypal_link_ids[]" value="<?= e($entry['id']) ?>">
+                <label>Name<input name="paypal_link_names[]" maxlength="80" placeholder="Name" value="<?= e($entry['name']) ?>"></label>
+                <label>Link<input name="paypal_link_urls[]" maxlength="255" placeholder="https://paypal.me/..." value="<?= e($entry['url']) ?>"></label>
+            </div>
+        </details>
+    </li>
+<?php endforeach; ?>
+</ul>
+<details class="admin-create-panel">
+    <summary>➕ Neuer PayPal-Link</summary>
+    <div class="admin-create-form">
+        <input type="hidden" name="paypal_link_ids[]" value="">
+        <label>Name<input name="paypal_link_names[]" maxlength="80" placeholder="Name"></label>
+        <label>Link<input name="paypal_link_urls[]" maxlength="255" placeholder="https://paypal.me/..."></label>
+    </div>
+</details>
+<button>PayPal speichern</button></form>
+
+<h3>Einstellungen</h3>
+<?php if (!$isSuperAdmin): ?>
+<p class="muted">Nur die Gruppe Admin darf diesen Bereich bearbeiten.</p>
+<?php endif; ?>
+<form method="post"><input type="hidden" name="action" value="save_general_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
 <?php $resetValue = normalized_hhmm((string) ($settings['daily_reset_time'] ?? ''), '10:30'); ?>
 <label>Täglicher Reset (gilt für alle Tage)
-    <input type="time" name="daily_reset_time" value="<?= e($resetValue) ?>" step="60">
+    <input type="time" name="daily_reset_time" value="<?= e($resetValue) ?>" step="60" <?= $isSuperAdmin ? '' : 'disabled' ?>>
 </label>
-<fieldset>
-    <legend>PayPal-Links hinzufügen/ändern</legend>
-    <?php foreach ($paypalLinks as $entry): ?>
-    <div class="inline">
-        <input type="hidden" name="paypal_link_ids[]" value="<?= e($entry['id']) ?>">
-        <input name="paypal_link_names[]" maxlength="80" placeholder="Name" value="<?= e($entry['name']) ?>">
-        <input name="paypal_link_urls[]" maxlength="255" placeholder="https://paypal.me/..." value="<?= e($entry['url']) ?>">
-    </div>
-    <?php endforeach; ?>
-    <div class="inline">
-        <input type="hidden" name="paypal_link_ids[]" value="">
-        <input name="paypal_link_names[]" maxlength="80" placeholder="Name">
-        <input name="paypal_link_urls[]" maxlength="255" placeholder="https://paypal.me/...">
-    </div>
-</fieldset>
-<label>Zusätzlicher Text unter Website-Titel<input name="header_subtitle" maxlength="200" value="<?= e((string) ($settings['header_subtitle'] ?? '')) ?>"></label>
-<label class="check"><input type="checkbox" name="reset_daily_note" <?= (($settings['reset_daily_note'] ?? '1') === '1') ? 'checked' : '' ?>> Tageshinweis beim Reset löschen</label>
-<button>Speichern</button></form>
+<label>Zusätzlicher Text unter Website-Titel<input name="header_subtitle" maxlength="200" value="<?= e((string) ($settings['header_subtitle'] ?? '')) ?>" <?= $isSuperAdmin ? '' : 'disabled' ?>></label>
+<label>Hinweistext bei deaktivierten Bestellungen<input name="day_disabled_notice" maxlength="250" value="<?= e((string) ($settings['day_disabled_notice'] ?? 'Bestellungen sind heute deaktiviert.')) ?>" <?= $isSuperAdmin ? '' : 'disabled' ?>></label>
+<?php if ($isSuperAdmin): ?><button>Einstellungen speichern</button><?php endif; ?></form>
 </section>
 <?php endif; ?>
 

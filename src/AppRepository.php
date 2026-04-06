@@ -228,6 +228,7 @@ final class AppRepository
             ("paypal_link_active_id", ""),
             ("daily_note", ""),
             ("header_subtitle", ""),
+            ("day_disabled_notice", "Bestellungen sind heute deaktiviert."),
             ("order_closed", "0"),
             ("manual_winner_supplier_id", ""),
             ("reset_daily_note", "1"),

@@ -195,6 +195,10 @@ $groupedSuppliers = [];
 foreach ($suppliers as $supplier) {
     $groupedSuppliers[$supplier['category_name'] ?? 'Sonstiges'][] = $supplier;
 }
+$dayDisabledNotice = trim((string) ($settings['day_disabled_notice'] ?? ''));
+if ($dayDisabledNotice === '') {
+    $dayDisabledNotice = 'Bestellungen sind heute deaktiviert.';
+}
 ?>
 <!doctype html>
 <html lang="de">
@@ -214,14 +218,17 @@ foreach ($suppliers as $supplier) {
             <h1><?= e((string) ($config['app_name'] ?? 'Vereins-Essen')) ?></h1>
         </div>
         <?php if (!empty($settings['header_subtitle'])): ?><p><?= e((string) $settings['header_subtitle']) ?></p><?php endif; ?>
-        <p>Abstimmung bis <?= e($state['voting_end']->format('H:i')) ?> Uhr<br>Bestellung bis <?= e($state['order_end']->format('H:i')) ?> Uhr</p>
+        <?php if (!$state['day_disabled']): ?>
+            <p>Abstimmung bis <?= e($state['voting_end']->format('H:i')) ?> Uhr<br>Bestellung bis <?= e($state['order_end']->format('H:i')) ?> Uhr</p>
+        <?php endif; ?>
         <?php if (!empty($settings['daily_note'])): ?><p class="notice info"><strong>Tageshinweis:</strong> <?= e((string) $settings['daily_note']) ?></p><?php endif; ?>
+        <?php if ($state['day_disabled']): ?><p class="notice error"><?= e($dayDisabledNotice) ?></p><?php endif; ?>
     </header>
 
     <?php if ($message): ?><p class="notice success"><?= e($message) ?></p><?php endif; ?>
     <?php if ($error): ?><p class="notice error"><?= e($error) ?></p><?php endif; ?>
 
-    <?php if ($state['phase'] === 'voting' && !$hasVoted): ?>
+    <?php if (!$state['day_disabled'] && $state['phase'] === 'voting' && !$hasVoted): ?>
         <section class="card">
             <h2>Abstimmen</h2>
             <p class="muted">Du hast <?= (int) $voteCount ?> von 2 Stimmen abgegeben.</p>
@@ -247,14 +254,14 @@ foreach ($suppliers as $supplier) {
         </section>
     <?php endif; ?>
 
-    <?php if ($state['phase'] === 'voting' && $hasVoted): ?>
+    <?php if (!$state['day_disabled'] && $state['phase'] === 'voting' && $hasVoted): ?>
         <section class="card">
             <h2>Abstimmen</h2>
             <p class="notice success">Vielen Dank für deine Stimmen! Du hast heute bereits 2 Stimmen abgegeben – unten siehst du das aktuelle Zwischenergebnis.</p>
         </section>
     <?php endif; ?>
 
-    <?php if ($state['phase'] === 'voting'): ?>
+    <?php if (!$state['day_disabled'] && $state['phase'] === 'voting'): ?>
         <section class="card">
             <h2>Zwischenstand</h2>
             <table>
@@ -274,14 +281,14 @@ foreach ($suppliers as $supplier) {
         </section>
     <?php endif; ?>
 
-    <?php if ($winner && $state['phase'] !== 'voting'): ?>
+    <?php if (!$state['day_disabled'] && $winner && $state['phase'] !== 'voting'): ?>
         <section class="card">
             <h2>Gewinner: <?= e((string) ($winner['category_name'] ?? '-')) ?></h2>
             <p><?= e((string) $winner['name']) ?> - <a href="<?= e((string) $winner['menu_url']) ?>" target="_blank" rel="noopener">Speisekarte</a></p>
         </section>
     <?php endif; ?>
 
-    <?php if ($state['phase'] === 'ordering'): ?>
+    <?php if (!$state['day_disabled'] && $state['phase'] === 'ordering'): ?>
         <section class="card">
             <h2>Bestellen</h2>
             <form method="post">
@@ -309,7 +316,7 @@ foreach ($suppliers as $supplier) {
         </section>
     <?php endif; ?>
 
-    <?php if ($state['phase'] !== 'voting'): ?>
+    <?php if (!$state['day_disabled'] && $state['phase'] !== 'voting'): ?>
         <section class="card">
             <h2>Meine Bestellungen</h2>
             <table>
