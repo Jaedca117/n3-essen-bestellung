@@ -98,6 +98,7 @@ $adminSections = [
 ];
 
 if (!$isSuperAdmin) {
+    unset($adminSections['general']);
     unset($adminSections['users']);
 }
 
@@ -936,19 +937,16 @@ if ($todayDayDisabled):
 </section>
 <?php endif; ?>
 
-<?php if ($adminSection === 'general'): ?>
+<?php if ($adminSection === 'general' && $isSuperAdmin): ?>
 <section class="card"><h2>Seiten-Einstellungen</h2>
-<?php if (!$isSuperAdmin): ?>
-<p class="muted">Nur die Gruppe Admin darf diesen Bereich bearbeiten.</p>
-<?php endif; ?>
 <form method="post"><input type="hidden" name="action" value="save_general_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
 <?php $resetValue = normalized_hhmm((string) ($settings['daily_reset_time'] ?? ''), '10:30'); ?>
 <label>Täglicher Reset (gilt für alle Tage)
-    <input type="time" name="daily_reset_time" value="<?= e($resetValue) ?>" step="60" <?= $isSuperAdmin ? '' : 'disabled' ?>>
+    <input type="time" name="daily_reset_time" value="<?= e($resetValue) ?>" step="60">
 </label>
-<label>Zusätzlicher Text unter Website-Titel<input name="header_subtitle" maxlength="200" value="<?= e((string) ($settings['header_subtitle'] ?? '')) ?>" <?= $isSuperAdmin ? '' : 'disabled' ?>></label>
-<label>Hinweistext bei deaktivierten Bestellungen<input name="day_disabled_notice" maxlength="250" value="<?= e((string) ($settings['day_disabled_notice'] ?? 'Bestellungen sind heute deaktiviert.')) ?>" <?= $isSuperAdmin ? '' : 'disabled' ?>></label>
-<?php if ($isSuperAdmin): ?><button>Einstellungen speichern</button><?php endif; ?></form>
+<label>Zusätzlicher Text unter Website-Titel<input name="header_subtitle" maxlength="200" value="<?= e((string) ($settings['header_subtitle'] ?? '')) ?>"></label>
+<label>Hinweistext bei deaktivierten Bestellungen<input name="day_disabled_notice" maxlength="250" value="<?= e((string) ($settings['day_disabled_notice'] ?? 'Bestellungen sind heute deaktiviert.')) ?>"></label>
+<button>Einstellungen speichern</button></form>
 </section>
 <?php endif; ?>
 
