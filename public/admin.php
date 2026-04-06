@@ -259,46 +259,6 @@ function can_manage_users(?string $role): bool
 }
 
 /**
- * @return list<array{id:string,name:string,url:string}>
- */
-function paypal_link_options(array $settings): array
-{
-    $raw = (string) ($settings['paypal_links'] ?? '');
-    if ($raw === '') {
-        $legacyLink = trim((string) ($settings['paypal_link'] ?? ''));
-        if ($legacyLink === '') {
-            return [];
-        }
-        return [[
-            'id' => 'legacy',
-            'name' => 'Standard',
-            'url' => $legacyLink,
-        ]];
-    }
-
-    $decoded = json_decode($raw, true);
-    if (!is_array($decoded)) {
-        return [];
-    }
-
-    $result = [];
-    foreach ($decoded as $entry) {
-        if (!is_array($entry)) {
-            continue;
-        }
-        $id = trim((string) ($entry['id'] ?? ''));
-        $name = trim((string) ($entry['name'] ?? ''));
-        $url = trim((string) ($entry['url'] ?? ''));
-        if ($id === '' || $name === '' || $url === '') {
-            continue;
-        }
-        $result[] = ['id' => $id, 'name' => $name, 'url' => $url];
-    }
-
-    return $result;
-}
-
-/**
  * @param array<string, scalar|null> $details
  */
 function record_audit_log(AppRepository $repo, ?array $currentAdmin, string $actionKey, string $targetType, string $targetId, array $details = []): void
@@ -371,10 +331,8 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
                 isset($_POST['day_disabled_' . $weekdayKey]) ? '1' : '0'
             );
         }
-        $repo->saveSetting('order_closed', '0');
-
         $existingPaypalIds = [];
-        foreach (paypal_link_options($repo->getSettings()) as $entry) {
+        foreach ($service->paypalLinkOptions($repo->getSettings()) as $entry) {
             $existingPaypalIds[$entry['id']] = true;
         }
         foreach (weekday_labels() as $weekdayKey => $_) {
@@ -741,7 +699,7 @@ $supplierRatingStats = $repo->supplierRatingStatsBySupplierId();
 $orders = $repo->orders();
 $adminUsers = $isSuperAdmin ? $repo->allAdminUsers() : [];
 $auditLogs = $isSuperAdmin ? $repo->auditLogsLastDays(7) : [];
-$paypalLinks = paypal_link_options($settings);
+$paypalLinks = $service->paypalLinkOptions($settings);
 ?>
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin</title><link rel="stylesheet" href="style.css"></head>

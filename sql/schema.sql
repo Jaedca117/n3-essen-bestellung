@@ -55,8 +55,7 @@ CREATE TABLE IF NOT EXISTS `n3_essen_supplier_ratings` (
 
 CREATE TABLE IF NOT EXISTS `n3_essen_orders` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `public_id` VARCHAR(12) NOT NULL,
-  `edit_token` VARCHAR(64) NOT NULL,
+  `created_by_token` VARCHAR(64) NOT NULL DEFAULT '',
   `nickname` VARCHAR(40) NOT NULL,
   `dish_no` VARCHAR(20) NOT NULL DEFAULT '',
   `dish_name` VARCHAR(120) NOT NULL,
@@ -65,12 +64,10 @@ CREATE TABLE IF NOT EXISTS `n3_essen_orders` (
   `payment_method` ENUM('bar','paypal') NOT NULL DEFAULT 'bar',
   `is_paid` TINYINT(1) NOT NULL DEFAULT 0,
   `note` VARCHAR(200) NOT NULL DEFAULT '',
-  `confirmed` TINYINT(1) NOT NULL DEFAULT 1,
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_public_id` (`public_id`),
-  UNIQUE KEY `uniq_edit_token` (`edit_token`)
+  KEY `idx_created_by_token` (`created_by_token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `n3_essen_admin_users` (
@@ -84,6 +81,21 @@ CREATE TABLE IF NOT EXISTS `n3_essen_admin_users` (
   UNIQUE KEY `uniq_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `n3_essen_audit_logs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `admin_user_id` INT UNSIGNED NOT NULL,
+  `actor_username` VARCHAR(40) NOT NULL,
+  `actor_role` ENUM('admin', 'orga') NOT NULL,
+  `action_key` VARCHAR(80) NOT NULL,
+  `target_type` VARCHAR(40) NOT NULL,
+  `target_id` VARCHAR(80) NOT NULL DEFAULT '',
+  `details_json` TEXT NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_created_at` (`created_at`),
+  KEY `idx_admin_user_id` (`admin_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS `n3_essen_rate_limits` (
   `action_key` VARCHAR(160) NOT NULL,
   `window_started_at` DATETIME NOT NULL,
@@ -95,12 +107,33 @@ INSERT INTO `n3_essen_settings` (`setting_key`, `setting_value`) VALUES
 ('voting_end_time', '16:00:00'),
 ('order_end_time', '18:00:00'),
 ('daily_reset_time', '10:30:00'),
+('voting_end_time_monday', '16:00'),
+('voting_end_time_tuesday', '16:00'),
+('voting_end_time_wednesday', '16:00'),
+('voting_end_time_thursday', '16:00'),
+('voting_end_time_friday', '16:00'),
+('voting_end_time_saturday', '16:00'),
+('voting_end_time_sunday', '16:00'),
+('order_end_time_monday', '18:00'),
+('order_end_time_tuesday', '18:00'),
+('order_end_time_wednesday', '18:00'),
+('order_end_time_thursday', '18:00'),
+('order_end_time_friday', '18:00'),
+('order_end_time_saturday', '18:00'),
+('order_end_time_sunday', '18:00'),
+('day_disabled_monday', '0'),
+('day_disabled_tuesday', '0'),
+('day_disabled_wednesday', '0'),
+('day_disabled_thursday', '0'),
+('day_disabled_friday', '0'),
+('day_disabled_saturday', '0'),
+('day_disabled_sunday', '0'),
 ('paypal_link', ''),
 ('paypal_links', '[]'),
 ('paypal_link_active_id', ''),
 ('daily_note', ''),
+('header_subtitle', ''),
 ('day_disabled_notice', 'Bestellungen sind heute deaktiviert.'),
-('order_closed', '0'),
 ('manual_winner_supplier_id', ''),
 ('reset_daily_note', '1'),
 ('last_reset_at', '1970-01-01 00:00:00')
