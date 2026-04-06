@@ -51,7 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
     $orderId = 0;
 
-    if ($action === 'vote') {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges Formular-Token. Bitte Seite neu laden.';
+    } elseif ($action === 'vote') {
         if ($state['phase'] !== 'voting') {
             $error = 'Die Abstimmungsphase ist beendet.';
         } elseif (!$service->canProceed('vote', client_ip())) {
@@ -76,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    if (in_array($action, ['order_create', 'order_update', 'order_delete'], true)) {
+    if ($error === null && in_array($action, ['order_create', 'order_update', 'order_delete'], true)) {
         if ($state['phase'] !== 'ordering') {
             $error = 'Bestellungen sind aktuell nicht möglich.';
         } elseif (!$service->canProceed($action === 'order_create' ? 'order_create' : 'order_update', client_ip())) {
@@ -125,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    if ($action === 'supplier_rating') {
+    if ($error === null && $action === 'supplier_rating') {
         if ($state['day_disabled']) {
             $error = 'Heute sind keine Aktionen möglich.';
         } elseif ($state['phase'] !== 'closed') {
@@ -245,6 +247,7 @@ if ($dayDisabledNotice === '') {
                         <?php foreach ($items as $supplier): ?>
                             <form method="post" class="supplier-card">
                                 <input type="hidden" name="action" value="vote">
+                                <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
                                 <input type="hidden" name="supplier_id" value="<?= (int) $supplier['id'] ?>">
                                 <strong><?= e((string) $supplier['name']) ?></strong>
                                 <a href="<?= e((string) $supplier['menu_url']) ?>" target="_blank" rel="noopener">Speisekarte</a>
@@ -296,6 +299,7 @@ if ($dayDisabledNotice === '') {
             <h2>Bestellen</h2>
             <form method="post">
                 <input type="hidden" name="action" value="<?= $editOrder ? 'order_update' : 'order_create' ?>">
+                <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
                 <label>Name/Kurzname<input type="text" name="nickname" maxlength="40" required value="<?= e((string) ($editOrder['nickname'] ?? '')) ?>"></label>
                 <label>Essensnummer<input type="text" name="dish_no" maxlength="20" value="<?= e((string) ($editOrder['dish_no'] ?? '')) ?>"></label>
                 <label>Gericht<input type="text" name="dish_name" maxlength="120" required value="<?= e((string) ($editOrder['dish_name'] ?? '')) ?>"></label>
@@ -315,7 +319,7 @@ if ($dayDisabledNotice === '') {
             </form>
 
             <?php if ($editOrder): ?>
-                <form method="post"><input type="hidden" name="action" value="order_delete"><input type="hidden" name="order_id" value="<?= (int) $editOrder['id'] ?>"><button type="submit" class="danger">Bestellung löschen</button></form>
+                <form method="post"><input type="hidden" name="action" value="order_delete"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="order_id" value="<?= (int) $editOrder['id'] ?>"><button type="submit" class="danger">Bestellung löschen</button></form>
             <?php endif; ?>
         </section>
     <?php endif; ?>
@@ -365,6 +369,7 @@ if ($dayDisabledNotice === '') {
                 <p>Wie zufrieden warst du mit <strong><?= e((string) $winner['name']) ?></strong>?</p>
                 <form method="post" class="rating-form">
                     <input type="hidden" name="action" value="supplier_rating">
+                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
                     <input type="hidden" name="supplier_id" value="<?= (int) $winner['id'] ?>">
                     <div class="rating-stars">
                         <?php for ($star = 5; $star >= 1; $star--): ?>

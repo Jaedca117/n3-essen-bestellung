@@ -180,10 +180,8 @@ Dann im Browser öffnen:
 
 ## Erster Admin-Zugang
 
-- Benutzer: `admin`
-- Passwort: `admin1234`
-
-**Wichtig:** Nach dem ersten Login sofort neues Passwort setzen (direkt in DB per `password_hash()` erzeugen und in `admin_users.password_hash` aktualisieren).
+Beim ersten Aufruf von `/admin` ohne vorhandenen Benutzer erscheint ein Setup-Formular.
+Dort legst du den ersten Admin-Benutzer inkl. sicherem Passwort an.
 
 ## Betriebslogik
 

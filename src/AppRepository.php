@@ -66,33 +66,29 @@ final class AppRepository
         return (bool) $stmt->fetchColumn();
     }
 
+    private function applySchemaFromSqlFile(): void
+    {
+        $schemaPath = dirname(__DIR__) . '/sql/schema.sql';
+        if (!is_file($schemaPath)) {
+            throw new RuntimeException('Schema-Datei fehlt: ' . $schemaPath);
+        }
+
+        $sql = (string) file_get_contents($schemaPath);
+        $sql = str_replace('`n3_essen_', '`' . $this->prefix, $sql);
+        $sql = str_replace('n3_essen_', $this->prefix, $sql);
+        $sql = preg_replace('/^\s*--.*$/m', '', $sql) ?? $sql;
+
+        foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
+            if ($statement === '') {
+                continue;
+            }
+            $this->pdo->exec($statement);
+        }
+    }
+
     private function ensureSchemaInitialized(): void
     {
-        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('settings') . ' (
-            setting_key VARCHAR(64) NOT NULL,
-            setting_value TEXT NOT NULL,
-            PRIMARY KEY (setting_key)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-
-        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('categories') . ' (
-            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            name VARCHAR(80) NOT NULL,
-            PRIMARY KEY (id),
-            UNIQUE KEY uniq_category_name (name)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-
-        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('suppliers') . ' (
-            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            category_id INT UNSIGNED NOT NULL,
-            name VARCHAR(120) NOT NULL,
-            menu_url VARCHAR(255) NOT NULL DEFAULT "",
-            order_method VARCHAR(1000) NOT NULL DEFAULT "",
-            available_weekdays VARCHAR(100) NOT NULL DEFAULT "",
-            is_active TINYINT(1) NOT NULL DEFAULT 1,
-            PRIMARY KEY (id),
-            KEY idx_category_id (category_id),
-            FOREIGN KEY (category_id) REFERENCES ' . $this->t('categories') . ' (id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        $this->applySchemaFromSqlFile();
 
         if (!$this->columnExists('suppliers', 'order_method')) {
             $this->pdo->exec('ALTER TABLE ' . $this->t('suppliers') . ' ADD COLUMN order_method VARCHAR(1000) NOT NULL DEFAULT "" AFTER menu_url');
@@ -102,22 +98,24 @@ final class AppRepository
         }
 
 
-        if (!$this->columnExists('suppliers', 'available_weekdays')) {
-            $this->pdo->exec('ALTER TABLE ' . $this->t('suppliers') . ' ADD COLUMN available_weekdays VARCHAR(100) NOT NULL DEFAULT "" AFTER order_method');
+        if (!$this->tableExists('supplier_weekdays')) {
+            $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('supplier_weekdays') . ' (
+                supplier_id INT UNSIGNED NOT NULL,
+                weekday_key VARCHAR(10) NOT NULL,
+                PRIMARY KEY (supplier_id, weekday_key),
+                KEY idx_weekday_key (weekday_key),
+                CONSTRAINT fk_supplier_weekdays_supplier FOREIGN KEY (supplier_id) REFERENCES ' . $this->t('suppliers') . ' (id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
         }
-
-        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('votes') . ' (
-            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            vote_token VARCHAR(64) NOT NULL,
-            supplier_id INT UNSIGNED NOT NULL,
-            created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL,
-            PRIMARY KEY (id),
-            UNIQUE KEY uniq_vote_token_supplier (vote_token, supplier_id),
-            KEY idx_vote_token (vote_token),
-            KEY idx_supplier_id (supplier_id),
-            FOREIGN KEY (supplier_id) REFERENCES ' . $this->t('suppliers') . ' (id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        if (!$this->tableExists('admin_user_weekdays')) {
+            $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('admin_user_weekdays') . ' (
+                admin_user_id INT UNSIGNED NOT NULL,
+                weekday_key VARCHAR(10) NOT NULL,
+                PRIMARY KEY (admin_user_id, weekday_key),
+                KEY idx_admin_weekday_key (weekday_key),
+                CONSTRAINT fk_admin_user_weekdays_user FOREIGN KEY (admin_user_id) REFERENCES ' . $this->t('admin_users') . ' (id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        }
 
         if ($this->indexExists('votes', 'uniq_vote_token')) {
             $this->pdo->exec('ALTER TABLE ' . $this->t('votes') . ' DROP INDEX uniq_vote_token');
@@ -128,36 +126,6 @@ final class AppRepository
         if (!$this->indexExists('votes', 'idx_vote_token')) {
             $this->pdo->exec('ALTER TABLE ' . $this->t('votes') . ' ADD KEY idx_vote_token (vote_token)');
         }
-
-        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('supplier_ratings') . ' (
-            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            vote_token VARCHAR(64) NOT NULL,
-            supplier_id INT UNSIGNED NOT NULL,
-            rating TINYINT UNSIGNED NOT NULL,
-            created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL,
-            PRIMARY KEY (id),
-            UNIQUE KEY uniq_rating_token_supplier (vote_token, supplier_id),
-            KEY idx_rating_supplier_id (supplier_id),
-            KEY idx_rating_vote_token (vote_token),
-            FOREIGN KEY (supplier_id) REFERENCES ' . $this->t('suppliers') . ' (id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-
-        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('orders') . ' (
-            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            created_by_token VARCHAR(64) NOT NULL DEFAULT "",
-            nickname VARCHAR(40) NOT NULL,
-            dish_no VARCHAR(20) NOT NULL DEFAULT "",
-            dish_name VARCHAR(120) NOT NULL,
-            dish_size VARCHAR(40) NOT NULL DEFAULT "",
-            price DECIMAL(8,2) NOT NULL,
-            payment_method ENUM("bar", "paypal") NOT NULL DEFAULT "bar",
-            note VARCHAR(200) NOT NULL DEFAULT "",
-            created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL,
-            PRIMARY KEY (id),
-            KEY idx_created_by_token (created_by_token)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
         if (!$this->columnExists('orders', 'dish_size')) {
             $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD COLUMN dish_size VARCHAR(40) NOT NULL DEFAULT "" AFTER dish_name');
@@ -174,83 +142,27 @@ final class AppRepository
             $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' MODIFY COLUMN dish_size VARCHAR(40) NOT NULL DEFAULT ""');
         }
 
-        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('admin_users') . ' (
-            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            username VARCHAR(40) NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            role ENUM("admin", "orga") NOT NULL DEFAULT "admin",
-            editable_weekdays VARCHAR(100) NOT NULL DEFAULT "",
-            created_at DATETIME NOT NULL,
-            PRIMARY KEY (id),
-            UNIQUE KEY uniq_username (username)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-
         if (!$this->columnExists('admin_users', 'role')) {
             $this->pdo->exec('ALTER TABLE ' . $this->t('admin_users') . ' ADD COLUMN role ENUM("admin", "orga") NOT NULL DEFAULT "admin" AFTER password_hash');
         }
-        if (!$this->columnExists('admin_users', 'editable_weekdays')) {
-            $this->pdo->exec('ALTER TABLE ' . $this->t('admin_users') . ' ADD COLUMN editable_weekdays VARCHAR(100) NOT NULL DEFAULT "" AFTER role');
+        if ($this->columnExists('admin_users', 'created_at')) {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('admin_users') . ' DROP COLUMN created_at');
         }
 
-        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('audit_logs') . ' (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            admin_user_id INT UNSIGNED NOT NULL,
-            actor_username VARCHAR(40) NOT NULL,
-            actor_role ENUM("admin", "orga") NOT NULL,
-            action_key VARCHAR(80) NOT NULL,
-            target_type VARCHAR(40) NOT NULL,
-            target_id VARCHAR(80) NOT NULL DEFAULT "",
-            details_json TEXT NOT NULL,
-            created_at DATETIME NOT NULL,
-            PRIMARY KEY (id),
-            KEY idx_created_at (created_at),
-            KEY idx_admin_user_id (admin_user_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-
-        $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('rate_limits') . ' (
-            action_key VARCHAR(160) NOT NULL,
-            window_started_at DATETIME NOT NULL,
-            request_count INT UNSIGNED NOT NULL,
-            PRIMARY KEY (action_key)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-
-        $this->pdo->exec('INSERT IGNORE INTO ' . $this->t('settings') . ' (setting_key, setting_value) VALUES
-            ("daily_reset_time", "10:30:00"),
-            ("voting_end_time_monday", "16:00"),
-            ("voting_end_time_tuesday", "16:00"),
-            ("voting_end_time_wednesday", "16:00"),
-            ("voting_end_time_thursday", "16:00"),
-            ("voting_end_time_friday", "16:00"),
-            ("voting_end_time_saturday", "16:00"),
-            ("voting_end_time_sunday", "16:00"),
-            ("order_end_time_monday", "18:00"),
-            ("order_end_time_tuesday", "18:00"),
-            ("order_end_time_wednesday", "18:00"),
-            ("order_end_time_thursday", "18:00"),
-            ("order_end_time_friday", "18:00"),
-            ("order_end_time_saturday", "18:00"),
-            ("order_end_time_sunday", "18:00"),
-            ("day_disabled_monday", "0"),
-            ("day_disabled_tuesday", "0"),
-            ("day_disabled_wednesday", "0"),
-            ("day_disabled_thursday", "0"),
-            ("day_disabled_friday", "0"),
-            ("day_disabled_saturday", "0"),
-            ("day_disabled_sunday", "0"),
-            ("paypal_links", "[]"),
-            ("daily_note", ""),
-            ("header_subtitle", ""),
-            ("day_disabled_notice", "Bestellungen sind heute deaktiviert."),
-            ("manual_winner_supplier_id", ""),
-            ("reset_daily_note", "1"),
-            ("last_reset_at", "1970-01-01 00:00:00")');
-
-        $this->pdo->exec('INSERT IGNORE INTO ' . $this->t('categories') . ' (name) VALUES
-            ("Italienisch"), ("Griechisch"), ("Burger"), ("Döner"), ("Asiatisch")');
-
-        $this->pdo->exec('INSERT INTO ' . $this->t('admin_users') . ' (username, password_hash, role, editable_weekdays, created_at)
-            SELECT "admin", "$2y$12$GNqw/UBiF19Pd1o5Z2Toke.OTW7T.Pn0veykfJLqDpGcp7a0G.NcG", "admin", "", NOW()
-            WHERE NOT EXISTS (SELECT 1 FROM ' . $this->t('admin_users') . ')');
+        if ($this->columnExists('suppliers', 'available_weekdays')) {
+            $rows = $this->pdo->query('SELECT id, available_weekdays FROM ' . $this->t('suppliers'))->fetchAll();
+            foreach ($rows as $row) {
+                $this->syncSupplierWeekdays((int) $row['id'], (string) ($row['available_weekdays'] ?? ''));
+            }
+            $this->pdo->exec('ALTER TABLE ' . $this->t('suppliers') . ' DROP COLUMN available_weekdays');
+        }
+        if ($this->columnExists('admin_users', 'editable_weekdays')) {
+            $rows = $this->pdo->query('SELECT id, editable_weekdays FROM ' . $this->t('admin_users'))->fetchAll();
+            foreach ($rows as $row) {
+                $this->syncAdminUserWeekdays((int) $row['id'], (string) ($row['editable_weekdays'] ?? ''));
+            }
+            $this->pdo->exec('ALTER TABLE ' . $this->t('admin_users') . ' DROP COLUMN editable_weekdays');
+        }
     }
 
     private function tableExists(string $name): bool
@@ -273,6 +185,54 @@ final class AppRepository
         $this->pdo->exec('DELETE FROM ' . $this->t($name));
     }
 
+    /**
+     * @return list<string>
+     */
+    private function weekdayListFromCsv(string $csv): array
+    {
+        $valid = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        $result = [];
+        foreach (explode(',', $csv) as $raw) {
+            $weekday = trim($raw);
+            if ($weekday !== '' && in_array($weekday, $valid, true)) {
+                $result[$weekday] = true;
+            }
+        }
+        return array_values(array_keys($result));
+    }
+
+    private function syncSupplierWeekdays(int $supplierId, string $csvWeekdays): void
+    {
+        if ($supplierId <= 0) {
+            return;
+        }
+        $this->pdo->prepare('DELETE FROM ' . $this->t('supplier_weekdays') . ' WHERE supplier_id=:id')->execute([':id' => $supplierId]);
+        foreach ($this->weekdayListFromCsv($csvWeekdays) as $weekdayKey) {
+            $this->pdo->prepare(
+                'INSERT INTO ' . $this->t('supplier_weekdays') . ' (supplier_id, weekday_key) VALUES (:supplier_id,:weekday_key)'
+            )->execute([
+                ':supplier_id' => $supplierId,
+                ':weekday_key' => $weekdayKey,
+            ]);
+        }
+    }
+
+    private function syncAdminUserWeekdays(int $adminUserId, string $csvWeekdays): void
+    {
+        if ($adminUserId <= 0) {
+            return;
+        }
+        $this->pdo->prepare('DELETE FROM ' . $this->t('admin_user_weekdays') . ' WHERE admin_user_id=:id')->execute([':id' => $adminUserId]);
+        foreach ($this->weekdayListFromCsv($csvWeekdays) as $weekdayKey) {
+            $this->pdo->prepare(
+                'INSERT INTO ' . $this->t('admin_user_weekdays') . ' (admin_user_id, weekday_key) VALUES (:admin_user_id,:weekday_key)'
+            )->execute([
+                ':admin_user_id' => $adminUserId,
+                ':weekday_key' => $weekdayKey,
+            ]);
+        }
+    }
+
     public function getSettings(): array
     {
         $stmt = $this->pdo->query('SELECT setting_key, setting_value FROM ' . $this->t('settings'));
@@ -285,9 +245,57 @@ final class AppRepository
 
     public function saveSetting(string $key, string $value): void
     {
+        if (!$this->isAllowedSettingKey($key)) {
+            throw new InvalidArgumentException('Unbekannter Setting-Key: ' . $key);
+        }
+        $value = $this->normalizeSettingValue($key, $value);
         $sql = 'INSERT INTO ' . $this->t('settings') . ' (setting_key, setting_value) VALUES (:k,:v)
                 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)';
         $this->pdo->prepare($sql)->execute([':k' => $key, ':v' => $value]);
+    }
+
+    private function isAllowedSettingKey(string $key): bool
+    {
+        $static = [
+            'daily_reset_time',
+            'paypal_links',
+            'daily_note',
+            'header_subtitle',
+            'day_disabled_notice',
+            'manual_winner_supplier_id',
+            'reset_daily_note',
+            'last_reset_at',
+        ];
+        if (in_array($key, $static, true)) {
+            return true;
+        }
+
+        return preg_match('/^(voting_end_time|order_end_time|day_disabled|paypal_link_active_id)_(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/', $key) === 1;
+    }
+
+    private function normalizeSettingValue(string $key, string $value): string
+    {
+        $value = trim($value);
+        if (preg_match('/^(voting_end_time|order_end_time)_(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/', $key) === 1 || $key === 'daily_reset_time') {
+            if (preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/', $value) !== 1) {
+                throw new InvalidArgumentException('Ungültiger Zeitwert für ' . $key);
+            }
+            return strlen($value) === 5 ? $value : substr($value, 0, 8);
+        }
+
+        if (str_starts_with($key, 'day_disabled_') || $key === 'reset_daily_note') {
+            return $value === '1' ? '1' : '0';
+        }
+
+        if ($key === 'paypal_links') {
+            $decoded = json_decode($value, true);
+            if (!is_array($decoded)) {
+                throw new InvalidArgumentException('paypal_links muss ein JSON-Array sein.');
+            }
+            return json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        return $value;
     }
 
     public function categories(): array
@@ -297,10 +305,13 @@ final class AppRepository
 
     public function suppliers(): array
     {
-        $sql = 'SELECT s.*, c.name AS category_name
+        $sql = 'SELECT s.id, s.category_id, s.name, s.menu_url, s.order_method, s.is_active, c.name AS category_name,
+                       COALESCE(GROUP_CONCAT(sw.weekday_key ORDER BY sw.weekday_key SEPARATOR ","), "") AS available_weekdays
                 FROM ' . $this->t('suppliers') . ' s
                 LEFT JOIN ' . $this->t('categories') . ' c ON c.id=s.category_id
+                LEFT JOIN ' . $this->t('supplier_weekdays') . ' sw ON sw.supplier_id=s.id
                 WHERE s.is_active=1
+                GROUP BY s.id, s.category_id, s.name, s.menu_url, s.order_method, s.is_active, c.name
                 ORDER BY c.name ASC, s.name ASC';
         $rows = $this->pdo->query($sql)->fetchAll();
         $weekdayKey = current_weekday_key();
@@ -309,9 +320,12 @@ final class AppRepository
 
     public function allSuppliers(): array
     {
-        $sql = 'SELECT s.*, c.name AS category_name
+        $sql = 'SELECT s.id, s.category_id, s.name, s.menu_url, s.order_method, s.is_active, c.name AS category_name,
+                       COALESCE(GROUP_CONCAT(sw.weekday_key ORDER BY sw.weekday_key SEPARATOR ","), "") AS available_weekdays
                 FROM ' . $this->t('suppliers') . ' s
                 LEFT JOIN ' . $this->t('categories') . ' c ON c.id=s.category_id
+                LEFT JOIN ' . $this->t('supplier_weekdays') . ' sw ON sw.supplier_id=s.id
+                GROUP BY s.id, s.category_id, s.name, s.menu_url, s.order_method, s.is_active, c.name
                 ORDER BY c.name ASC, s.name ASC';
         return $this->pdo->query($sql)->fetchAll();
     }
@@ -344,16 +358,20 @@ final class AppRepository
             ':category_id' => $data['category_id'],
             ':menu_url' => $data['menu_url'],
             ':order_method' => $data['order_method'],
-            ':available_weekdays' => $data['available_weekdays'],
             ':is_active' => $data['is_active'],
         ];
         if (!empty($data['id'])) {
             $payload[':id'] = $data['id'];
-            $sql = 'UPDATE ' . $this->t('suppliers') . ' SET name=:name, category_id=:category_id, menu_url=:menu_url, order_method=:order_method, available_weekdays=:available_weekdays, is_active=:is_active WHERE id=:id';
+            $sql = 'UPDATE ' . $this->t('suppliers') . ' SET name=:name, category_id=:category_id, menu_url=:menu_url, order_method=:order_method, is_active=:is_active WHERE id=:id';
         } else {
-            $sql = 'INSERT INTO ' . $this->t('suppliers') . ' (name, category_id, menu_url, order_method, available_weekdays, is_active) VALUES (:name,:category_id,:menu_url,:order_method,:available_weekdays,:is_active)';
+            $sql = 'INSERT INTO ' . $this->t('suppliers') . ' (name, category_id, menu_url, order_method, is_active) VALUES (:name,:category_id,:menu_url,:order_method,:is_active)';
         }
         $this->pdo->prepare($sql)->execute($payload);
+        $supplierId = (int) ($data['id'] ?? 0);
+        if ($supplierId <= 0) {
+            $supplierId = (int) $this->pdo->lastInsertId();
+        }
+        $this->syncSupplierWeekdays($supplierId, (string) ($data['available_weekdays'] ?? ''));
     }
 
     public function deleteSupplier(int $id): void
@@ -395,12 +413,15 @@ final class AppRepository
 
     public function voteResults(): array
     {
-        $sql = 'SELECT s.id, s.name, c.name AS category_name, s.menu_url, s.order_method, s.available_weekdays, COUNT(v.id) AS votes
+        $sql = 'SELECT s.id, s.name, c.name AS category_name, s.menu_url, s.order_method,
+                       COALESCE(GROUP_CONCAT(DISTINCT sw.weekday_key ORDER BY sw.weekday_key SEPARATOR ","), "") AS available_weekdays,
+                       COUNT(DISTINCT v.id) AS votes
                 FROM ' . $this->t('suppliers') . ' s
                 LEFT JOIN ' . $this->t('categories') . ' c ON c.id=s.category_id
                 LEFT JOIN ' . $this->t('votes') . ' v ON v.supplier_id=s.id
+                LEFT JOIN ' . $this->t('supplier_weekdays') . ' sw ON sw.supplier_id=s.id
                 WHERE s.is_active=1
-                GROUP BY s.id,s.name,c.name,s.menu_url,s.order_method,s.available_weekdays
+                GROUP BY s.id,s.name,c.name,s.menu_url,s.order_method
                 ORDER BY votes DESC, s.id ASC';
         $rows = $this->pdo->query($sql)->fetchAll();
         $weekdayKey = current_weekday_key();
@@ -637,55 +658,83 @@ final class AppRepository
 
     public function findAdminByUsername(string $username): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM ' . $this->t('admin_users') . ' WHERE username=:u LIMIT 1');
+        $stmt = $this->pdo->prepare(
+            'SELECT au.*,
+                    COALESCE(GROUP_CONCAT(auw.weekday_key ORDER BY auw.weekday_key SEPARATOR ","), "") AS editable_weekdays
+             FROM ' . $this->t('admin_users') . ' au
+             LEFT JOIN ' . $this->t('admin_user_weekdays') . ' auw ON auw.admin_user_id = au.id
+             WHERE au.username=:u
+             GROUP BY au.id, au.username, au.password_hash, au.role
+             LIMIT 1'
+        );
         $stmt->execute([':u'=>$username]);
         return $stmt->fetch() ?: null;
     }
 
     public function findAdminById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM ' . $this->t('admin_users') . ' WHERE id=:id LIMIT 1');
+        $stmt = $this->pdo->prepare(
+            'SELECT au.*,
+                    COALESCE(GROUP_CONCAT(auw.weekday_key ORDER BY auw.weekday_key SEPARATOR ","), "") AS editable_weekdays
+             FROM ' . $this->t('admin_users') . ' au
+             LEFT JOIN ' . $this->t('admin_user_weekdays') . ' auw ON auw.admin_user_id = au.id
+             WHERE au.id=:id
+             GROUP BY au.id, au.username, au.password_hash, au.role
+             LIMIT 1'
+        );
         $stmt->execute([':id' => $id]);
         return $stmt->fetch() ?: null;
     }
 
+    public function adminUserCount(): int
+    {
+        $stmt = $this->pdo->query('SELECT COUNT(*) FROM ' . $this->t('admin_users'));
+        return (int) $stmt->fetchColumn();
+    }
+
     public function allAdminUsers(): array
     {
-        return $this->pdo->query('SELECT * FROM ' . $this->t('admin_users') . ' ORDER BY username ASC')->fetchAll();
+        $sql = 'SELECT au.*,
+                       COALESCE(GROUP_CONCAT(auw.weekday_key ORDER BY auw.weekday_key SEPARATOR ","), "") AS editable_weekdays
+                FROM ' . $this->t('admin_users') . ' au
+                LEFT JOIN ' . $this->t('admin_user_weekdays') . ' auw ON auw.admin_user_id = au.id
+                GROUP BY au.id, au.username, au.password_hash, au.role
+                ORDER BY au.username ASC';
+        return $this->pdo->query($sql)->fetchAll();
     }
 
     public function createAdminUser(string $username, string $passwordHash, string $role, string $editableWeekdays): void
     {
-        $sql = 'INSERT INTO ' . $this->t('admin_users') . ' (username, password_hash, role, editable_weekdays, created_at) VALUES (:username, :password_hash, :role, :editable_weekdays, NOW())';
+        $sql = 'INSERT INTO ' . $this->t('admin_users') . ' (username, password_hash, role) VALUES (:username, :password_hash, :role)';
         $this->pdo->prepare($sql)->execute([
             ':username' => $username,
             ':password_hash' => $passwordHash,
             ':role' => $role,
-            ':editable_weekdays' => $editableWeekdays,
         ]);
+        $this->syncAdminUserWeekdays((int) $this->pdo->lastInsertId(), $editableWeekdays);
     }
 
     public function updateAdminUser(int $id, string $username, string $role, string $editableWeekdays, ?string $passwordHash = null): void
     {
         if ($passwordHash !== null) {
-            $sql = 'UPDATE ' . $this->t('admin_users') . ' SET username=:username, role=:role, editable_weekdays=:editable_weekdays, password_hash=:password_hash WHERE id=:id';
+            $sql = 'UPDATE ' . $this->t('admin_users') . ' SET username=:username, role=:role, password_hash=:password_hash WHERE id=:id';
             $this->pdo->prepare($sql)->execute([
                 ':username' => $username,
                 ':role' => $role,
-                ':editable_weekdays' => $editableWeekdays,
                 ':password_hash' => $passwordHash,
                 ':id' => $id,
             ]);
+            $this->syncAdminUserWeekdays($id, $editableWeekdays);
             return;
         }
 
-        $sql = 'UPDATE ' . $this->t('admin_users') . ' SET username=:username, role=:role, editable_weekdays=:editable_weekdays WHERE id=:id';
+        $sql = 'UPDATE ' . $this->t('admin_users') . ' SET username=:username, role=:role WHERE id=:id';
         $this->pdo->prepare($sql)->execute([
             ':username' => $username,
             ':role' => $role,
-            ':editable_weekdays' => $editableWeekdays,
             ':id' => $id,
         ]);
+        $this->syncAdminUserWeekdays($id, $editableWeekdays);
     }
 
     public function deleteAdminUser(int $id): void

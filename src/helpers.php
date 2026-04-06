@@ -43,19 +43,52 @@ function weekday_keys_by_iso_number(): array
     ];
 }
 
-function current_weekday_key(): string
+/**
+ * @return list<string>
+ */
+function weekday_keys(): array
 {
-    $isoWeekday = (int) (new DateTimeImmutable('now'))->format('N');
-    $map = weekday_keys_by_iso_number();
-    return $map[$isoWeekday] ?? 'monday';
+    return array_values(weekday_keys_by_iso_number());
+}
+
+/**
+ * @return array<string,string>
+ */
+function weekday_labels_de(): array
+{
+    return [
+        'monday' => 'Montag',
+        'tuesday' => 'Dienstag',
+        'wednesday' => 'Mittwoch',
+        'thursday' => 'Donnerstag',
+        'friday' => 'Freitag',
+        'saturday' => 'Samstag',
+        'sunday' => 'Sonntag',
+    ];
+}
+
+/**
+ * @return array<string,string>
+ */
+function weekday_short_labels_de(): array
+{
+    return [
+        'monday' => 'Mo',
+        'tuesday' => 'Di',
+        'wednesday' => 'Mi',
+        'thursday' => 'Do',
+        'friday' => 'Fr',
+        'saturday' => 'Sa',
+        'sunday' => 'So',
+    ];
 }
 
 /**
  * @return list<string>
  */
-function parse_supplier_weekdays(string $raw): array
+function parse_weekday_csv(string $raw): array
 {
-    $validKeys = array_values(weekday_keys_by_iso_number());
+    $validKeys = weekday_keys();
     $parts = array_filter(array_map('trim', explode(',', $raw)), static fn(string $v): bool => $v !== '');
     $normalized = [];
     foreach ($parts as $part) {
@@ -69,13 +102,13 @@ function parse_supplier_weekdays(string $raw): array
 /**
  * @return list<string>
  */
-function sanitize_supplier_weekday_input($posted): array
+function sanitize_weekday_input($posted): array
 {
     if (!is_array($posted)) {
         return [];
     }
 
-    $validKeys = array_values(weekday_keys_by_iso_number());
+    $validKeys = weekday_keys();
     $selected = [];
     foreach ($posted as $value) {
         $key = trim((string) $value);
@@ -83,8 +116,30 @@ function sanitize_supplier_weekday_input($posted): array
             $selected[$key] = true;
         }
     }
-
     return array_values(array_keys($selected));
+}
+
+function current_weekday_key(): string
+{
+    $isoWeekday = (int) (new DateTimeImmutable('now'))->format('N');
+    $map = weekday_keys_by_iso_number();
+    return $map[$isoWeekday] ?? 'monday';
+}
+
+/**
+ * @return list<string>
+ */
+function parse_supplier_weekdays(string $raw): array
+{
+    return parse_weekday_csv($raw);
+}
+
+/**
+ * @return list<string>
+ */
+function sanitize_supplier_weekday_input($posted): array
+{
+    return sanitize_weekday_input($posted);
 }
 
 function supplier_available_on_weekday(array $supplier, string $weekdayKey): bool
