@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 
+$requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?? '';
+if (preg_match('#/admin\.php$#', $requestPath) === 1) {
+    $targetPath = (string) preg_replace('#/admin\.php$#', '/admin', $requestPath);
+    $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
+    header('Location: ' . ($query !== '' ? $targetPath . '?' . $query : $targetPath), true, 301);
+    exit;
+}
+
 $pdo = Database::connect($config['db']);
 $repo = new AppRepository($pdo, (string) ($config['db']['table_prefix'] ?? 'n3_essen_'));
 $service = new AppService($repo);
@@ -31,9 +39,9 @@ function consume_admin_flash(): ?array
 
 function redirect_back_to_admin(): void
 {
-    $requestUri = (string) ($_SERVER['REQUEST_URI'] ?? 'admin.php');
+    $requestUri = (string) ($_SERVER['REQUEST_URI'] ?? '/admin');
     if ($requestUri === '' || str_contains($requestUri, "\n") || str_contains($requestUri, "\r")) {
-        $requestUri = 'admin.php';
+        $requestUri = '/admin';
     }
     header('Location: ' . $requestUri);
     exit;
@@ -42,7 +50,7 @@ function redirect_back_to_admin(): void
 if (isset($_GET['logout'])) {
     unset($_SESSION['admin_id']);
     session_regenerate_id(true);
-    header('Location: admin.php');
+    header('Location: /admin');
     exit;
 }
 
@@ -55,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'logi
         if ($user && password_verify($password, (string) $user['password_hash'])) {
             $_SESSION['admin_id'] = (int) $user['id'];
             session_regenerate_id(true);
-            header('Location: admin.php');
+            header('Location: /admin');
             exit;
         }
         $error = 'Login fehlgeschlagen.';
@@ -79,7 +87,7 @@ if ($isAdmin) {
     if (!$currentAdmin) {
         unset($_SESSION['admin_id']);
         session_regenerate_id(true);
-        header('Location: admin.php');
+        header('Location: /admin');
         exit;
     }
     $adminRole = (string) ($currentAdmin['role'] ?? 'orga');
@@ -704,7 +712,7 @@ $paypalLinks = paypal_link_options($settings);
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin</title><link rel="stylesheet" href="style.css"></head>
 <body><main class="container"><h1>Admin-Bereich</h1>
-<p><a href="index.php">Zur Startseite</a><?= $isAdmin ? ' · <a href="print.php">Druckansicht</a> · <a href="?logout=1">Logout</a>' : '' ?></p>
+<p><a href="/">Zur Startseite</a><?= $isAdmin ? ' · <a href="/print">Druckansicht</a> · <a href="?logout=1">Logout</a>' : '' ?></p>
 <?php if ($isAdmin && $currentAdmin): ?>
 <p class="muted">Angemeldet als <strong><?= e((string) $currentAdmin['username']) ?></strong> (<?= e($adminRole === 'admin' ? 'Admin' : 'Orga') ?>)</p>
 <?php endif; ?>
@@ -719,7 +727,7 @@ $paypalLinks = paypal_link_options($settings);
     <h2>Bereiche</h2>
     <nav class="admin-sections">
         <?php foreach ($adminSections as $key => $label): ?>
-            <a class="admin-section-link <?= $adminSection === $key ? 'active' : '' ?>" href="admin.php?section=<?= e($key) ?>"><?= e($label) ?></a>
+            <a class="admin-section-link <?= $adminSection === $key ? 'active' : '' ?>" href="/admin?section=<?= e($key) ?>"><?= e($label) ?></a>
         <?php endforeach; ?>
     </nav>
 </section>
@@ -734,7 +742,7 @@ if ($todayDayDisabled):
 <p class="notice error">Für heute ist die Bestellung deaktiviert.</p>
 <?php endif; ?>
 <form method="post"><input type="hidden" name="action" value="save_current_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-<p class="muted">Druckansicht: <a href="print.php">print.php öffnen</a></p>
+<p class="muted">Druckansicht: <a href="/print">Druckansicht öffnen</a></p>
 <label>Tageshinweis<input name="daily_note" maxlength="200" value="<?= e((string) ($settings['daily_note'] ?? '')) ?>"></label>
 <label class="check"><input type="checkbox" name="reset_daily_note" <?= (($settings['reset_daily_note'] ?? '1') === '1') ? 'checked' : '' ?>> Tageshinweis beim Reset löschen</label>
 <label>Manueller Gewinner

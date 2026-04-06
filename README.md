@@ -22,9 +22,9 @@ Warum passend:
 
 ## Struktur
 
-- `public/index.php` – Hauptseite (Abstimmung + Bestellung)
-- `public/admin.php` – Admin-Login und Einstellungen
-- `public/print.php` – Druckansicht
+- `public/index.php` – Hauptseite (Abstimmung + Bestellung, erreichbar über `/`)
+- `public/admin.php` – Admin-Login und Einstellungen (erreichbar über `/admin`)
+- `public/print.php` – Druckansicht (erreichbar über `/print`)
 - `src/` – DB + Businesslogik
 - `sql/schema.sql` – Tabellen + Standarddaten
 - `config.sample.php` – Konfigurationsvorlage
@@ -176,7 +176,7 @@ php -v
 
 Dann im Browser öffnen:
 - `http://beispiel.de/` (oder direkt die Server-IP)
-- Admin: `http://beispiel.de/admin.php`
+- Admin: `http://beispiel.de/admin`
 
 ## Erster Admin-Zugang
 

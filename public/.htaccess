@@ -1,3 +1,21 @@
-# Falls nötig, kann hier ein Front-Controller-Rewrite ergänzt werden.
-# Bei dieser App reicht es, index.php direkt aufzurufen.
-DirectoryIndex index.php
+RewriteEngine On
+
+# Vorhandene Dateien/Ordner direkt ausliefern
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# .php in der Adresszeile ausblenden (kanonische Weiterleitungen)
+RewriteCond %{THE_REQUEST} \s/+index\.php(?:[\s?]|$) [NC]
+RewriteRule ^index\.php$ ./ [R=301,L]
+
+RewriteCond %{THE_REQUEST} \s/+admin\.php(?:[\s?]|$) [NC]
+RewriteRule ^admin\.php$ admin [R=301,L]
+
+RewriteCond %{THE_REQUEST} \s/+print\.php(?:[\s?]|$) [NC]
+RewriteRule ^print\.php$ print [R=301,L]
+
+# Saubere URLs intern auf PHP-Dateien mappen
+RewriteRule ^$ index.php [L,QSA]
+RewriteRule ^admin/?$ admin.php [L,QSA,NC]
+RewriteRule ^print/?$ print.php [L,QSA,NC]
