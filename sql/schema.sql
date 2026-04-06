@@ -85,6 +85,7 @@ INSERT INTO `n3_essen_settings` (`setting_key`, `setting_value`) VALUES
 ('paypal_links', '[]'),
 ('paypal_link_active_id', ''),
 ('daily_note', ''),
+('day_disabled_notice', 'Bestellungen sind heute deaktiviert.'),
 ('order_closed', '0'),
 ('manual_winner_supplier_id', ''),
 ('reset_daily_note', '1'),
