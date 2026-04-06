@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 
+$requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?? '';
+if (preg_match('#/index\.php$#', $requestPath) === 1) {
+    $targetPath = (string) preg_replace('#/index\.php$#', '/', $requestPath);
+    $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
+    header('Location: ' . ($query !== '' ? $targetPath . '?' . $query : $targetPath), true, 301);
+    exit;
+}
+
 $pdo = Database::connect($config['db']);
 $repo = new AppRepository($pdo, (string) ($config['db']['table_prefix'] ?? 'n3_essen_'));
 $service = new AppService($repo);
@@ -341,7 +349,7 @@ if ($dayDisabledNotice === '') {
     </section>
 
     <div class="admin-link-bottom">
-        <a href="admin.php" class="admin-link-button">Adminbereich</a>
+        <a href="/admin" class="admin-link-button">Adminbereich</a>
     </div>
 </main>
 </body>

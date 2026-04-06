@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 
+$requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?? '';
+if (preg_match('#/print\.php$#', $requestPath) === 1) {
+    $targetPath = (string) preg_replace('#/print\.php$#', '/print', $requestPath);
+    $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
+    header('Location: ' . ($query !== '' ? $targetPath . '?' . $query : $targetPath), true, 301);
+    exit;
+}
+
 $pdo = Database::connect($config['db']);
 $repo = new AppRepository($pdo, (string) ($config['db']['table_prefix'] ?? 'n3_essen_'));
 $service = new AppService($repo);
@@ -11,7 +19,7 @@ $state = $service->runtimeState();
 $settings = $state['settings'];
 
 if (!isset($_SESSION['admin_id'])) {
-    header('Location: admin.php');
+    header('Location: /admin');
     exit;
 }
 
@@ -22,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'togg
             $repo->setOrderPaidStatus($orderId, isset($_POST['is_paid']));
         }
     }
-    header('Location: print.php');
+    header('Location: /print');
     exit;
 }
 
@@ -32,7 +40,7 @@ $totals = $repo->orderTotals();
 ?>
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Druckansicht</title><link rel="stylesheet" href="style.css"><style>.paid-cell{text-align:right}.paid-toggle-form{display:flex;justify-content:flex-end}.paid-checkbox{width:1.2rem;height:1.2rem;accent-color:#111}@media print{a{color:#000;text-decoration:none}.noprint{display:none}.paid-checkbox{width:1.25rem;height:1.25rem;border:1px solid #000;appearance:none;background:#fff}.paid-checkbox:checked{background:linear-gradient(135deg,#000 0,#000 100%)}}</style></head>
-<body><main class="container"><p class="noprint"><a href="admin.php">Zurück</a></p><h1>Druckansicht <?= e((new DateTimeImmutable('now'))->format('d.m.Y')) ?></h1>
+<body><main class="container"><p class="noprint"><a href="/admin">Zurück</a></p><h1>Druckansicht <?= e((new DateTimeImmutable('now'))->format('d.m.Y')) ?></h1>
 <p><strong>Gewinner:</strong> <?= e((string) ($winner['category_name'] ?? 'Noch kein Gewinner')) ?></p>
 <?php if ($winner): ?><p><?= e((string) $winner['name']) ?> - <strong>Speisekarte:</strong> <?= e((string) $winner['menu_url']) ?></p><?php endif; ?>
 <?php if (!empty($winner['order_method'])): ?><p><strong>Bestellverfahren:</strong> <?= nl2br(e((string) $winner['order_method'])) ?></p><?php endif; ?>
