@@ -124,6 +124,8 @@ $auditActionLabels = [
     'save_time_settings' => 'Zeiten gespeichert',
     'save_paypal_settings' => 'PayPal gespeichert',
     'save_general_settings' => 'Einstellungen gespeichert',
+    'manual_reset_daily_data' => 'Tagesdaten manuell zurückgesetzt',
+    'cleanup_daily_residual_data' => 'Liegengebliebene Tagesdaten bereinigt',
     'save_category' => 'Kategorie gespeichert',
     'delete_category' => 'Kategorie gelöscht',
     'save_supplier' => 'Lieferant gespeichert',
@@ -472,6 +474,37 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
         $message = 'Bereich "Einstellungen" gespeichert.';
         record_audit_log($repo, $currentAdmin, 'save_general_settings', 'settings', 'general', [
             'daily_reset_time' => normalized_hhmm((string) ($_POST['daily_reset_time'] ?? ''), '10:30'),
+        ]);
+        set_admin_flash('success', $message);
+        redirect_back_to_admin();
+    }
+}
+
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'manual_reset_daily_data')) {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges CSRF-Token.';
+    } elseif (!$isSuperAdmin) {
+        $error = 'Nur Admins dürfen diesen Bereich bearbeiten.';
+    } else {
+        $settings = $repo->getSettings();
+        $repo->resetDaily((($settings['reset_daily_note'] ?? '1') === '1'));
+        $message = 'Tagesdaten wurden erfolgreich zurückgesetzt.';
+        record_audit_log($repo, $currentAdmin, 'manual_reset_daily_data', 'settings', 'general');
+        set_admin_flash('success', $message);
+        redirect_back_to_admin();
+    }
+}
+
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'cleanup_daily_residual_data')) {
+    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
+        $error = 'Ungültiges CSRF-Token.';
+    } elseif (!$isSuperAdmin) {
+        $error = 'Nur Admins dürfen diesen Bereich bearbeiten.';
+    } else {
+        $deletedRows = $repo->cleanupDailyResidualData();
+        $message = 'Liegengebliebene Tagesdaten wurden bereinigt (' . $deletedRows . ' Datensätze gelöscht).';
+        record_audit_log($repo, $currentAdmin, 'cleanup_daily_residual_data', 'settings', 'general', [
+            'deleted_rows' => $deletedRows,
         ]);
         set_admin_flash('success', $message);
         redirect_back_to_admin();
@@ -963,6 +996,20 @@ if ($todayDayDisabled):
 <label>Zusätzlicher Text unter Website-Titel<input name="header_subtitle" maxlength="200" value="<?= e((string) ($settings['header_subtitle'] ?? '')) ?>"></label>
 <label>Hinweistext bei deaktivierten Bestellungen<input name="day_disabled_notice" maxlength="250" value="<?= e((string) ($settings['day_disabled_notice'] ?? 'Bestellungen sind heute deaktiviert.')) ?>"></label>
 <button>Einstellungen speichern</button></form>
+<hr>
+<p class="muted">Wartung: Tagesdaten manuell zurücksetzen oder liegengebliebene Daten bereinigen.</p>
+<div class="admin-maintenance-actions">
+    <form method="post" class="inline">
+        <input type="hidden" name="action" value="manual_reset_daily_data">
+        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+        <button type="submit">Tagesdaten jetzt aufräumen</button>
+    </form>
+    <form method="post" class="inline">
+        <input type="hidden" name="action" value="cleanup_daily_residual_data">
+        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+        <button type="submit" class="danger">Liegengebliebene Daten bereinigen</button>
+    </form>
+</div>
 </section>
 <?php endif; ?>
 
