@@ -100,7 +100,7 @@ $adminSections = [
     'suppliers' => 'Lieferanten',
     'times' => 'Zeiten',
     'paypal' => 'PayPal',
-    'general' => 'Seiten-Einstellungen',
+    'general' => 'Einstellungen',
     'audit' => 'Audit Log',
     'users' => 'User Verwaltung',
 ];
@@ -987,7 +987,7 @@ if ($todayDayDisabled):
 <?php endif; ?>
 
 <?php if ($adminSection === 'general' && $isSuperAdmin): ?>
-<section class="card"><h2>Seiten-Einstellungen</h2>
+<section class="card"><h2>Einstellungen</h2>
 <form method="post"><input type="hidden" name="action" value="save_general_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
 <?php $resetValue = normalized_hhmm((string) ($settings['daily_reset_time'] ?? ''), '10:30'); ?>
 <label>Täglicher Reset (gilt für alle Tage)
