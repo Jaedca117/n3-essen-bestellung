@@ -99,6 +99,7 @@ $adminSections = [
 
 if (!$isSuperAdmin) {
     unset($adminSections['general']);
+    unset($adminSections['audit']);
     unset($adminSections['users']);
 }
 
@@ -697,7 +698,7 @@ $categories = $repo->categories();
 $suppliers = $repo->allSuppliers();
 $orders = $repo->orders();
 $adminUsers = $isSuperAdmin ? $repo->allAdminUsers() : [];
-$auditLogs = $isAdmin ? $repo->auditLogsLastDays(7) : [];
+$auditLogs = $isSuperAdmin ? $repo->auditLogsLastDays(7) : [];
 $paypalLinks = paypal_link_options($settings);
 ?>
 <!doctype html>
@@ -1018,7 +1019,7 @@ if ($todayDayDisabled):
 </section>
 <?php endif; ?>
 
-<?php if ($adminSection === 'audit'): ?>
+<?php if ($adminSection === 'audit' && $isSuperAdmin): ?>
 <section class="card"><h2>Audit Log (letzte 7 Tage)</h2>
 <?php if ($auditLogs === []): ?>
     <p class="muted">Keine Einträge vorhanden.</p>
