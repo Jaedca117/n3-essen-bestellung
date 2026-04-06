@@ -955,17 +955,12 @@ if ($todayDayDisabled):
 <label>Hinweistext bei deaktivierten Bestellungen<input name="day_disabled_notice" maxlength="250" value="<?= e((string) ($settings['day_disabled_notice'] ?? 'Bestellungen sind heute deaktiviert.')) ?>"></label>
 <button>Einstellungen speichern</button></form>
 <hr>
-<p class="muted">Wartung: Tagesdaten manuell zurücksetzen oder liegengebliebene Daten bereinigen.</p>
+<p class="muted">Wartung: Tagesdaten manuell zurücksetzen.</p>
 <div class="admin-maintenance-actions">
     <form method="post" class="inline">
         <input type="hidden" name="action" value="manual_reset_daily_data">
         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
         <button type="submit">Tagesdaten jetzt aufräumen</button>
-    </form>
-    <form method="post" class="inline">
-        <input type="hidden" name="action" value="cleanup_daily_residual_data">
-        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-        <button type="submit" class="danger">Liegengebliebene Daten bereinigen</button>
     </form>
 </div>
 </section>
