@@ -90,7 +90,9 @@ if ($isAdmin) {
 $adminSections = [
     'current' => 'Aktuelle Bestellung',
     'suppliers' => 'Lieferanten',
-    'settings' => 'Seiten-Einstellungen',
+    'times' => 'Zeiten',
+    'paypal' => 'PayPal',
+    'general' => 'Seiten-Einstellungen',
     'audit' => 'Audit Log',
     'users' => 'User Verwaltung',
 ];
@@ -100,6 +102,9 @@ if (!$isSuperAdmin) {
 }
 
 $adminSection = (string) ($_GET['section'] ?? 'current');
+if ($adminSection === 'settings') {
+    $adminSection = 'general';
+}
 if (!array_key_exists($adminSection, $adminSections)) {
     $adminSection = 'current';
 }
@@ -349,8 +354,12 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
                 'order_end_time_' . $weekdayKey,
                 normalized_hhmm((string) ($_POST['order_end_time_' . $weekdayKey] ?? ''), '18:00')
             );
+            $repo->saveSetting(
+                'day_disabled_' . $weekdayKey,
+                isset($_POST['day_disabled_' . $weekdayKey]) ? '1' : '0'
+            );
         }
-        $repo->saveSetting('order_closed', isset($_POST['order_closed']) ? '1' : '0');
+        $repo->saveSetting('order_closed', '0');
 
         $existingPaypalIds = [];
         foreach (paypal_link_options($repo->getSettings()) as $entry) {
@@ -373,8 +382,9 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             $settings = $repo->getSettings();
         } else {
         $message = 'Bereich "Zeiten" gespeichert.';
+        $todayWeekday = current_weekday_key();
         record_audit_log($repo, $currentAdmin, 'save_time_settings', 'settings', 'times', [
-            'order_closed' => isset($_POST['order_closed']) ? '1' : '0',
+            'day_disabled_today' => isset($_POST['day_disabled_' . $todayWeekday]) ? '1' : '0',
         ]);
         set_admin_flash('success', $message);
         redirect_back_to_admin();
@@ -714,6 +724,13 @@ $paypalLinks = paypal_link_options($settings);
 
 <?php if ($adminSection === 'current'): ?>
 <section class="card"><h2>Aktuelle Bestellung</h2>
+<?php
+$todayWeekday = current_weekday_key();
+$todayDayDisabled = (($settings['day_disabled_' . $todayWeekday] ?? '0') === '1') || (($settings['order_closed'] ?? '0') === '1');
+if ($todayDayDisabled):
+?>
+<p class="notice error">Für heute ist die Bestellung deaktiviert.</p>
+<?php endif; ?>
 <form method="post"><input type="hidden" name="action" value="save_current_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
 <p class="muted">Druckansicht: <a href="print.php">print.php öffnen</a></p>
 <label>Tageshinweis<input name="daily_note" maxlength="200" value="<?= e((string) ($settings['daily_note'] ?? '')) ?>"></label>
@@ -842,9 +859,8 @@ $paypalLinks = paypal_link_options($settings);
 </section>
 <?php endif; ?>
 
-<?php if ($adminSection === 'settings'): ?>
-<section class="card"><h2>Seiten-Einstellungen</h2>
-<h3>Zeiten</h3>
+<?php if ($adminSection === 'times'): ?>
+<section class="card"><h2>Zeiten</h2>
 <form method="post"><input type="hidden" name="action" value="save_time_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
 <?php $editableWeekdaysCurrent = $currentAdmin ? effective_editable_weekdays($currentAdmin) : array_keys(weekday_labels()); ?>
 <?php if (count($editableWeekdaysCurrent) < count(weekday_labels())): ?>
@@ -868,6 +884,10 @@ $paypalLinks = paypal_link_options($settings);
             <label>Bestellphase endet
                 <input type="time" name="order_end_time_<?= e($weekdayKey) ?>" value="<?= e($orderValue) ?>" step="60" <?= $canEditDay ? '' : 'disabled' ?>>
             </label>
+            <label class="check">
+                <input type="checkbox" name="day_disabled_<?= e($weekdayKey) ?>" value="1" <?= (($settings['day_disabled_' . $weekdayKey] ?? '0') === '1') ? 'checked' : '' ?> <?= $canEditDay ? '' : 'disabled' ?>>
+                Bestellung für <?= e($weekdayLabel) ?> deaktivieren
+            </label>
             <label>PayPal-Account
                 <select name="paypal_link_active_id_<?= e($weekdayKey) ?>" <?= $canEditDay ? '' : 'disabled' ?>>
                     <option value="">-- Kein Link --</option>
@@ -880,10 +900,12 @@ $paypalLinks = paypal_link_options($settings);
     </details>
     <?php endforeach; ?>
 </div>
-<label class="check"><input type="checkbox" name="order_closed" <?= (($settings['order_closed'] ?? '0') === '1') ? 'checked' : '' ?>> Bestellung für heute komplett deaktivieren</label>
 <button>Zeiten speichern</button></form>
+</section>
+<?php endif; ?>
 
-<h3>PayPal</h3>
+<?php if ($adminSection === 'paypal'): ?>
+<section class="card"><h2>PayPal</h2>
 <form method="post"><input type="hidden" name="action" value="save_paypal_settings"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
 <ul class="admin-collapsible-list">
 <?php foreach ($paypalLinks as $entry): ?>
@@ -911,8 +933,11 @@ $paypalLinks = paypal_link_options($settings);
     </div>
 </details>
 <button>PayPal speichern</button></form>
+</section>
+<?php endif; ?>
 
-<h3>Einstellungen</h3>
+<?php if ($adminSection === 'general'): ?>
+<section class="card"><h2>Seiten-Einstellungen</h2>
 <?php if (!$isSuperAdmin): ?>
 <p class="muted">Nur die Gruppe Admin darf diesen Bereich bearbeiten.</p>
 <?php endif; ?>

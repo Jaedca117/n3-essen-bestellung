@@ -21,10 +21,12 @@ final class AppService
         $orderEnd = new DateTimeImmutable($today . ' ' . $this->timeSettingForDay($settings, 'order_end_time', $weekday, '18:00:00'));
 
         $orderClosed = ($settings['order_closed'] ?? '0') === '1';
+        $dayDisabledByWeekday = ($settings['day_disabled_' . $weekday] ?? '0') === '1';
+        $dayDisabled = $orderClosed || $dayDisabledByWeekday;
 
         if ($now < $votingEnd) {
             $phase = 'voting';
-        } elseif (!$orderClosed && $now < $orderEnd) {
+        } elseif (!$dayDisabled && $now < $orderEnd) {
             $phase = 'ordering';
         } else {
             $phase = 'closed';
@@ -37,7 +39,7 @@ final class AppService
         return [
             'settings' => $settings,
             'phase' => $phase,
-            'day_disabled' => $orderClosed,
+            'day_disabled' => $dayDisabled,
             'now' => $now,
             'voting_end' => $votingEnd,
             'order_end' => $orderEnd,
