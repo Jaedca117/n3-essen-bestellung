@@ -67,6 +67,7 @@ final class AppService
     {
         $limits = [
             'vote' => [10, 120],
+            'supplier_rating' => [8, 180],
             'order_create' => [6, 180],
             'order_update' => [10, 180],
             'admin_login' => [10, 300],

@@ -319,3 +319,18 @@ th{color:#dbe4ff;background:#171f3b}
 .admin-row-action{
   margin-left:auto;
 }
+
+.rating-form{
+  margin-top:.5rem;
+}
+.rating-stars{
+  display:grid;
+  gap:.45rem;
+  max-width:260px;
+}
+.rating-star-button{
+  width:100%;
+  text-align:left;
+  font-size:1rem;
+  letter-spacing:.1rem;
+}

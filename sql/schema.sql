@@ -39,6 +39,20 @@ CREATE TABLE IF NOT EXISTS `n3_essen_votes` (
   CONSTRAINT `fk_n3_essen_votes_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `n3_essen_suppliers` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `n3_essen_supplier_ratings` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `vote_token` VARCHAR(64) NOT NULL,
+  `supplier_id` INT UNSIGNED NOT NULL,
+  `rating` TINYINT UNSIGNED NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_rating_token_supplier` (`vote_token`, `supplier_id`),
+  KEY `idx_rating_supplier_id` (`supplier_id`),
+  KEY `idx_rating_vote_token` (`vote_token`),
+  CONSTRAINT `fk_n3_essen_supplier_ratings_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `n3_essen_suppliers` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS `n3_essen_orders` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `public_id` VARCHAR(12) NOT NULL,

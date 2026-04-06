@@ -76,6 +76,10 @@ if (isset($_GET['edit_id'])) {
 
 $voteCount = $repo->voteCountForToken((string) $_COOKIE['vote_token']);
 $hasVoted = $voteCount >= 2;
+$settings = $state['settings'];
+$winner = $service->winner($settings);
+$hasPlacedOrder = $repo->hasOrdersByOwnerToken((string) $_COOKIE['vote_token']);
+$hasRatedWinner = $winner ? $repo->hasRatingForTokenAndSupplier((string) $_COOKIE['vote_token'], (int) $winner['id']) : false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
@@ -161,6 +165,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    if ($action === 'supplier_rating') {
+        if ($state['day_disabled']) {
+            $error = 'Heute sind keine Aktionen möglich.';
+        } elseif ($state['phase'] !== 'closed') {
+            $error = 'Bewertungen sind erst nach der Bestellphase möglich.';
+        } elseif (!$winner) {
+            $error = 'Aktuell gibt es keinen Lieferanten zum Bewerten.';
+        } elseif (!$hasPlacedOrder) {
+            $error = 'Du kannst erst bewerten, nachdem du eine Bestellung abgegeben hast.';
+        } elseif ($hasRatedWinner) {
+            $error = 'Du hast diesen Lieferanten bereits bewertet.';
+        } elseif (!$service->canProceed('supplier_rating', client_ip())) {
+            $error = 'Zu viele Aktionen in kurzer Zeit. Bitte kurz warten.';
+        } else {
+            $supplierId = (int) ($_POST['supplier_id'] ?? 0);
+            $rating = (int) ($_POST['rating'] ?? 0);
+            if ((int) $winner['id'] !== $supplierId) {
+                $error = 'Ungültiger Lieferant für die Bewertung.';
+            } elseif ($rating < 1 || $rating > 5) {
+                $error = 'Bitte gib eine Bewertung zwischen 1 und 5 Sternen ab.';
+            } else {
+                $repo->recordSupplierRating((string) $_COOKIE['vote_token'], $supplierId, $rating);
+                $hasRatedWinner = true;
+                $message = 'Danke! Deine Bewertung wurde gespeichert.';
+            }
+        }
+    }
+
     if ($message !== null) {
         $_SESSION['flash_message'] = $message;
     }
@@ -185,7 +217,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-$settings = $state['settings'];
 $dailyResetTime = trim((string) ($settings['daily_reset_time'] ?? '10:30:00'));
 if (preg_match('/^\d{2}:\d{2}/', $dailyResetTime) === 1) {
     $dailyResetTime = substr($dailyResetTime, 0, 5);
@@ -194,7 +225,6 @@ if (preg_match('/^\d{2}:\d{2}/', $dailyResetTime) === 1) {
 }
 $suppliers = $repo->suppliers();
 $voteResults = $repo->voteResults();
-$winner = $service->winner($settings);
 $orders = $repo->ordersByOwnerToken((string) $_COOKIE['vote_token']);
 $totals = $repo->orderTotalsByOwnerToken((string) $_COOKIE['vote_token']);
 $activePaypalLink = active_paypal_link($settings);
@@ -341,6 +371,30 @@ if ($dayDisabledNotice === '') {
             <?php if (!$orders): ?><p class="muted">Du hast noch keine Bestellung erfasst.</p><?php endif; ?>
             <p><strong>Gesamt:</strong> <?= number_format((float) $totals['all'], 2, ',', '.') ?> € · <strong>Bar:</strong> <?= number_format((float) $totals['bar'], 2, ',', '.') ?> € · <strong>PayPal:</strong> <?= number_format((float) $totals['paypal'], 2, ',', '.') ?> €</p>
             <?php if ($activePaypalLink && $state['paypal_enabled'] && (float) $totals['paypal'] > 0): ?><p><a href="<?= e($activePaypalLink['url']) ?>" target="_blank" rel="noopener">PayPal-Link: <?= e($activePaypalLink['name']) ?></a></p><?php endif; ?>
+        </section>
+    <?php endif; ?>
+
+    <?php if (!$state['day_disabled'] && $state['phase'] === 'closed' && $winner): ?>
+        <section class="card">
+            <h2>Lieferant bewerten</h2>
+            <?php if (!$hasPlacedOrder): ?>
+                <p class="muted">Bewertung nur möglich, wenn du heute mindestens eine Bestellung abgegeben hast.</p>
+            <?php elseif ($hasRatedWinner): ?>
+                <p class="notice success">Danke! Du hast <strong><?= e((string) $winner['name']) ?></strong> bereits bewertet.</p>
+            <?php else: ?>
+                <p>Wie zufrieden warst du mit <strong><?= e((string) $winner['name']) ?></strong>?</p>
+                <form method="post" class="rating-form">
+                    <input type="hidden" name="action" value="supplier_rating">
+                    <input type="hidden" name="supplier_id" value="<?= (int) $winner['id'] ?>">
+                    <div class="rating-stars">
+                        <?php for ($star = 5; $star >= 1; $star--): ?>
+                            <button type="submit" name="rating" value="<?= $star ?>" class="rating-star-button" aria-label="<?= $star ?> Stern<?= $star === 1 ? '' : 'e' ?>">
+                                <?= str_repeat('★', $star) ?>
+                            </button>
+                        <?php endfor; ?>
+                    </div>
+                </form>
+            <?php endif; ?>
         </section>
     <?php endif; ?>
     <section id="datenschutz" class="card privacy-card">
