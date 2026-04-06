@@ -17,40 +17,6 @@ $repo = new AppRepository($pdo, (string) ($config['db']['table_prefix'] ?? 'n3_e
 $service = new AppService($repo);
 $state = $service->runtimeState();
 
-/**
- * @return array{id:string,name:string,url:string}|null
- */
-function active_paypal_link(array $settings): ?array
-{
-    $decoded = json_decode((string) ($settings['paypal_links'] ?? ''), true);
-    $activeId = trim((string) ($settings['paypal_link_active_id'] ?? ''));
-    if (is_array($decoded)) {
-        foreach ($decoded as $entry) {
-            if (!is_array($entry)) {
-                continue;
-            }
-            $id = trim((string) ($entry['id'] ?? ''));
-            $name = trim((string) ($entry['name'] ?? ''));
-            $url = trim((string) ($entry['url'] ?? ''));
-            if ($id === '' || $name === '' || $url === '') {
-                continue;
-            }
-            if ($activeId !== '' && $id === $activeId) {
-                return ['id' => $id, 'name' => $name, 'url' => $url];
-            }
-            if ($activeId === '') {
-                return ['id' => $id, 'name' => $name, 'url' => $url];
-            }
-        }
-    }
-
-    $legacyLink = trim((string) ($settings['paypal_link'] ?? ''));
-    if ($legacyLink !== '') {
-        return ['id' => 'legacy', 'name' => 'PayPal', 'url' => $legacyLink];
-    }
-    return null;
-}
-
 $message = isset($_SESSION['flash_message']) ? (string) $_SESSION['flash_message'] : null;
 $error = isset($_SESSION['flash_error']) ? (string) $_SESSION['flash_error'] : null;
 $editOrder = null;
@@ -227,7 +193,7 @@ $suppliers = $repo->suppliers();
 $voteResults = $repo->voteResults();
 $orders = $repo->ordersByOwnerToken((string) $_COOKIE['vote_token']);
 $totals = $repo->orderTotalsByOwnerToken((string) $_COOKIE['vote_token']);
-$activePaypalLink = active_paypal_link($settings);
+$activePaypalLink = $service->activePaypalLinkForWeekday($settings, current_weekday_key());
 $displayTotals = $totals;
 if (!$state['paypal_enabled']) {
     $displayTotals['paypal'] = 0.0;

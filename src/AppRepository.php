@@ -145,8 +145,6 @@ final class AppRepository
 
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS ' . $this->t('orders') . ' (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            public_id VARCHAR(12) NOT NULL,
-            edit_token VARCHAR(64) NOT NULL,
             created_by_token VARCHAR(64) NOT NULL DEFAULT "",
             nickname VARCHAR(40) NOT NULL,
             dish_no VARCHAR(20) NOT NULL DEFAULT "",
@@ -155,12 +153,9 @@ final class AppRepository
             price DECIMAL(8,2) NOT NULL,
             payment_method ENUM("bar", "paypal") NOT NULL DEFAULT "bar",
             note VARCHAR(200) NOT NULL DEFAULT "",
-            confirmed TINYINT(1) NOT NULL DEFAULT 1,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY (id),
-            UNIQUE KEY uniq_public_id (public_id),
-            UNIQUE KEY uniq_edit_token (edit_token),
             KEY idx_created_by_token (created_by_token)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
@@ -173,6 +168,22 @@ final class AppRepository
         }
         if (!$this->columnExists('orders', 'is_paid')) {
             $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' ADD COLUMN is_paid TINYINT(1) NOT NULL DEFAULT 0 AFTER payment_method');
+        }
+
+        if ($this->columnExists('orders', 'public_id')) {
+            if ($this->indexExists('orders', 'uniq_public_id')) {
+                $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' DROP INDEX uniq_public_id');
+            }
+            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' DROP COLUMN public_id');
+        }
+        if ($this->columnExists('orders', 'edit_token')) {
+            if ($this->indexExists('orders', 'uniq_edit_token')) {
+                $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' DROP INDEX uniq_edit_token');
+            }
+            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' DROP COLUMN edit_token');
+        }
+        if ($this->columnExists('orders', 'confirmed')) {
+            $this->pdo->exec('ALTER TABLE ' . $this->t('orders') . ' DROP COLUMN confirmed');
         }
 
         if ($this->columnDataType('orders', 'dish_size') === 'enum') {
@@ -250,7 +261,6 @@ final class AppRepository
             ("daily_note", ""),
             ("header_subtitle", ""),
             ("day_disabled_notice", "Bestellungen sind heute deaktiviert."),
-            ("order_closed", "0"),
             ("manual_winner_supplier_id", ""),
             ("reset_daily_note", "1"),
             ("last_reset_at", "1970-01-01 00:00:00")');
@@ -382,13 +392,6 @@ final class AppRepository
         }
     }
 
-    public function hasVoteForToken(string $token): bool
-    {
-        $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM ' . $this->t('votes') . ' WHERE vote_token=:t');
-        $stmt->execute([':t' => $token]);
-        return (int) $stmt->fetchColumn() >= 2;
-    }
-
     public function voteCountForToken(string $token): int
     {
         $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM ' . $this->t('votes') . ' WHERE vote_token=:t');
@@ -476,15 +479,11 @@ final class AppRepository
         return $rows[0];
     }
 
-    public function createOrder(array $data): array
+    public function createOrder(array $data): void
     {
-        $publicId = strtoupper(bin2hex(random_bytes(4)));
-        $editToken = bin2hex(random_bytes(16));
-        $sql = 'INSERT INTO ' . $this->t('orders') . ' (public_id, edit_token, created_by_token, nickname, dish_no, dish_name, dish_size, price, payment_method, is_paid, note, confirmed, created_at, updated_at)
-                VALUES (:public_id,:edit_token,:created_by_token,:nickname,:dish_no,:dish_name,:dish_size,:price,:payment_method,:is_paid,:note,:confirmed,NOW(),NOW())';
+        $sql = 'INSERT INTO ' . $this->t('orders') . ' (created_by_token, nickname, dish_no, dish_name, dish_size, price, payment_method, is_paid, note, created_at, updated_at)
+                VALUES (:created_by_token,:nickname,:dish_no,:dish_name,:dish_size,:price,:payment_method,:is_paid,:note,NOW(),NOW())';
         $this->pdo->prepare($sql)->execute([
-            ':public_id' => $publicId,
-            ':edit_token' => $editToken,
             ':created_by_token' => (string) ($data['created_by_token'] ?? ''),
             ':nickname' => $data['nickname'],
             ':dish_no' => $data['dish_no'],
@@ -494,30 +493,7 @@ final class AppRepository
             ':payment_method' => $data['payment_method'],
             ':is_paid' => !empty($data['is_paid']) ? 1 : 0,
             ':note' => $data['note'],
-            ':confirmed' => 1,
         ]);
-        return ['public_id'=>$publicId,'edit_token'=>$editToken];
-    }
-
-    public function findOrderByToken(string $token): ?array
-    {
-        $stmt = $this->pdo->prepare('SELECT * FROM ' . $this->t('orders') . ' WHERE edit_token=:t LIMIT 1');
-        $stmt->execute([':t'=>$token]);
-        return $stmt->fetch() ?: null;
-    }
-
-    public function updateOrder(string $token, array $data): void
-    {
-        $sql = 'UPDATE ' . $this->t('orders') . ' SET nickname=:nickname,dish_no=:dish_no,dish_name=:dish_name,dish_size=:dish_size,price=:price,payment_method=:payment_method,note=:note,updated_at=NOW() WHERE edit_token=:token';
-        $this->pdo->prepare($sql)->execute([
-            ':nickname'=>$data['nickname'], ':dish_no'=>$data['dish_no'], ':dish_name'=>$data['dish_name'], ':dish_size'=>$data['dish_size'],
-            ':price'=>$data['price'], ':payment_method'=>$data['payment_method'], ':note'=>$data['note'], ':token'=>$token,
-        ]);
-    }
-
-    public function deleteOrder(string $token): void
-    {
-        $this->pdo->prepare('DELETE FROM ' . $this->t('orders') . ' WHERE edit_token=:t')->execute([':t'=>$token]);
     }
 
     public function findOrderById(int $id): ?array
@@ -665,7 +641,6 @@ final class AppRepository
             $this->deleteAllRowsIfTableExists('votes');
             $this->deleteAllRowsIfTableExists('supplier_ratings');
             $this->deleteAllRowsIfTableExists('orders');
-            $this->saveSetting('order_closed', '0');
             $this->saveSetting('manual_winner_supplier_id', '');
             if ($resetNote) {
                 $this->saveSetting('daily_note', '');
@@ -689,7 +664,6 @@ final class AppRepository
             $deleted += $this->deleteRowsByTableIfExists('supplier_ratings');
             $deleted += $this->deleteRowsByTableIfExists('orders');
             $deleted += $this->deleteRowsByTableIfExists('rate_limits');
-            $this->saveSetting('order_closed', '0');
             $this->saveSetting('manual_winner_supplier_id', '');
             $this->saveSetting('last_reset_at', (new DateTimeImmutable('now'))->format('Y-m-d H:i:s'));
             $this->pdo->commit();

@@ -107,7 +107,7 @@ final class AppService
     /**
      * @return array{id:string,name:string,url:string}|null
      */
-    private function activePaypalLinkForWeekday(array $settings, string $weekday): ?array
+    public function activePaypalLinkForWeekday(array $settings, string $weekday): ?array
     {
         $paypalLinks = $this->paypalLinkOptions($settings);
         if ($paypalLinks === []) {
@@ -143,7 +143,7 @@ final class AppService
     /**
      * @return list<array{id:string,name:string,url:string}>
      */
-    private function paypalLinkOptions(array $settings): array
+    public function paypalLinkOptions(array $settings): array
     {
         $raw = (string) ($settings['paypal_links'] ?? '');
         if ($raw === '') {

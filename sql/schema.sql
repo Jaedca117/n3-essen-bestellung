@@ -66,7 +66,6 @@ CREATE TABLE IF NOT EXISTS `n3_essen_orders` (
   `payment_method` ENUM('bar','paypal') NOT NULL DEFAULT 'bar',
   `is_paid` TINYINT(1) NOT NULL DEFAULT 0,
   `note` VARCHAR(200) NOT NULL DEFAULT '',
-  `confirmed` TINYINT(1) NOT NULL DEFAULT 1,
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
@@ -139,7 +138,6 @@ INSERT INTO `n3_essen_settings` (`setting_key`, `setting_value`) VALUES
 ('daily_note', ''),
 ('header_subtitle', ''),
 ('day_disabled_notice', 'Bestellungen sind heute deaktiviert.'),
-('order_closed', '0'),
 ('manual_winner_supplier_id', ''),
 ('reset_daily_note', '1'),
 ('last_reset_at', '1970-01-01 00:00:00')
