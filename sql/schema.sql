@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS `n3_essen_supplier_ratings` (
 
 CREATE TABLE IF NOT EXISTS `n3_essen_orders` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `public_id` VARCHAR(12) NOT NULL,
+  `edit_token` VARCHAR(64) NOT NULL,
   `created_by_token` VARCHAR(64) NOT NULL DEFAULT '',
   `nickname` VARCHAR(40) NOT NULL,
   `dish_no` VARCHAR(20) NOT NULL DEFAULT '',
@@ -67,6 +69,8 @@ CREATE TABLE IF NOT EXISTS `n3_essen_orders` (
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_public_id` (`public_id`),
+  UNIQUE KEY `uniq_edit_token` (`edit_token`),
   KEY `idx_created_by_token` (`created_by_token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
