@@ -55,8 +55,6 @@ CREATE TABLE IF NOT EXISTS `n3_essen_supplier_ratings` (
 
 CREATE TABLE IF NOT EXISTS `n3_essen_orders` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `public_id` VARCHAR(12) NOT NULL,
-  `edit_token` VARCHAR(64) NOT NULL,
   `created_by_token` VARCHAR(64) NOT NULL DEFAULT '',
   `nickname` VARCHAR(40) NOT NULL,
   `dish_no` VARCHAR(20) NOT NULL DEFAULT '',
@@ -69,8 +67,6 @@ CREATE TABLE IF NOT EXISTS `n3_essen_orders` (
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_public_id` (`public_id`),
-  UNIQUE KEY `uniq_edit_token` (`edit_token`),
   KEY `idx_created_by_token` (`created_by_token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -108,8 +104,6 @@ CREATE TABLE IF NOT EXISTS `n3_essen_rate_limits` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO `n3_essen_settings` (`setting_key`, `setting_value`) VALUES
-('voting_end_time', '16:00:00'),
-('order_end_time', '18:00:00'),
 ('daily_reset_time', '10:30:00'),
 ('voting_end_time_monday', '16:00'),
 ('voting_end_time_tuesday', '16:00'),
@@ -132,9 +126,7 @@ INSERT INTO `n3_essen_settings` (`setting_key`, `setting_value`) VALUES
 ('day_disabled_friday', '0'),
 ('day_disabled_saturday', '0'),
 ('day_disabled_sunday', '0'),
-('paypal_link', ''),
 ('paypal_links', '[]'),
-('paypal_link_active_id', ''),
 ('daily_note', ''),
 ('header_subtitle', ''),
 ('day_disabled_notice', 'Bestellungen sind heute deaktiviert.'),

@@ -125,7 +125,6 @@ $auditActionLabels = [
     'save_paypal_settings' => 'PayPal gespeichert',
     'save_general_settings' => 'Einstellungen gespeichert',
     'manual_reset_daily_data' => 'Tagesdaten manuell zurückgesetzt',
-    'cleanup_daily_residual_data' => 'Liegengebliebene Tagesdaten bereinigt',
     'save_category' => 'Kategorie gespeichert',
     'delete_category' => 'Kategorie gelöscht',
     'save_supplier' => 'Lieferant gespeichert',
@@ -136,23 +135,6 @@ $auditActionLabels = [
     'update_admin_user' => 'Admin/Orga User aktualisiert',
     'delete_admin_user' => 'Admin/Orga User gelöscht',
 ];
-
-/**
- * @return list<string>
- */
-function validate_order_payload(array $payload, bool $paypalEnabled): array
-{
-    $errors = [];
-    if (mb_strlen((string) $payload['nickname']) < 2 || mb_strlen((string) $payload['nickname']) > 40) $errors[] = 'Name muss 2-40 Zeichen haben.';
-    if (mb_strlen((string) $payload['dish_no']) > 20) $errors[] = 'Essensnummer ist zu lang.';
-    if (mb_strlen((string) $payload['dish_name']) < 2 || mb_strlen((string) $payload['dish_name']) > 120) $errors[] = 'Gericht muss 2-120 Zeichen haben.';
-    if (mb_strlen((string) $payload['dish_size']) > 40) $errors[] = 'Größe darf höchstens 40 Zeichen haben.';
-    if ((float) $payload['price'] <= 0 || (float) $payload['price'] > 999) $errors[] = 'Preis muss zwischen 0,01 und 999 liegen.';
-    if (!in_array((string) $payload['payment_method'], ['bar', 'paypal'], true)) $errors[] = 'Ungültige Zahlungsart.';
-    if (!$paypalEnabled && $payload['payment_method'] === 'paypal') $errors[] = 'PayPal ist heute nicht verfügbar.';
-    if (mb_strlen((string) $payload['note']) > 200) $errors[] = 'Bemerkung darf höchstens 200 Zeichen haben.';
-    return $errors;
-}
 
 /**
  * @return array<string, string>
@@ -351,13 +333,13 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
             $state = $service->runtimeState();
             $settings = $repo->getSettings();
         } else {
-        $message = 'Bereich "Zeiten" gespeichert.';
-        $todayWeekday = current_weekday_key();
-        record_audit_log($repo, $currentAdmin, 'save_time_settings', 'settings', 'times', [
-            'day_disabled_today' => isset($_POST['day_disabled_' . $todayWeekday]) ? '1' : '0',
-        ]);
-        set_admin_flash('success', $message);
-        redirect_back_to_admin();
+            $message = 'Bereich "Zeiten" gespeichert.';
+            $todayWeekday = current_weekday_key();
+            record_audit_log($repo, $currentAdmin, 'save_time_settings', 'settings', 'times', [
+                'day_disabled_today' => isset($_POST['day_disabled_' . $todayWeekday]) ? '1' : '0',
+            ]);
+            set_admin_flash('success', $message);
+            redirect_back_to_admin();
         }
     }
 }
@@ -393,11 +375,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
         }
 
         if ($error === null) {
-            $fallbackPaypalId = $paypalLinks[0]['id'] ?? '';
-            $fallbackPaypalUrl = $paypalLinks[0]['url'] ?? '';
             $repo->saveSetting('paypal_links', json_encode($paypalLinks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-            $repo->saveSetting('paypal_link_active_id', $fallbackPaypalId);
-            $repo->saveSetting('paypal_link', $fallbackPaypalUrl);
             $updatedSettings = $repo->getSettings();
             foreach (weekday_labels() as $weekdayKey => $_) {
                 if (!in_array($weekdayKey, $editableWeekdays, true)) {
@@ -448,22 +426,6 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
         $repo->resetDaily((($settings['reset_daily_note'] ?? '1') === '1'));
         $message = 'Tagesdaten wurden erfolgreich zurückgesetzt.';
         record_audit_log($repo, $currentAdmin, 'manual_reset_daily_data', 'settings', 'general');
-        set_admin_flash('success', $message);
-        redirect_back_to_admin();
-    }
-}
-
-if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'cleanup_daily_residual_data')) {
-    if (!verify_csrf_token($_POST['csrf'] ?? null)) {
-        $error = 'Ungültiges CSRF-Token.';
-    } elseif (!$isSuperAdmin) {
-        $error = 'Nur Admins dürfen diesen Bereich bearbeiten.';
-    } else {
-        $deletedRows = $repo->cleanupDailyResidualData();
-        $message = 'Liegengebliebene Tagesdaten wurden bereinigt (' . $deletedRows . ' Datensätze gelöscht).';
-        record_audit_log($repo, $currentAdmin, 'cleanup_daily_residual_data', 'settings', 'general', [
-            'deleted_rows' => $deletedRows,
-        ]);
         set_admin_flash('success', $message);
         redirect_back_to_admin();
     }
@@ -702,8 +664,16 @@ $auditLogs = $isSuperAdmin ? $repo->auditLogsLastDays(7) : [];
 $paypalLinks = $service->paypalLinkOptions($settings);
 ?>
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin</title><link rel="stylesheet" href="style.css"></head>
-<body><main class="container"><h1>Admin-Bereich</h1>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="container">
+<h1>Admin-Bereich</h1>
 <p><a href="/">Zur Startseite</a><?= $isAdmin ? ' · <a href="/print">Druckansicht</a> · <a href="?logout=1">Logout</a>' : '' ?></p>
 <?php if ($isAdmin && $currentAdmin): ?>
 <p class="muted">Angemeldet als <strong><?= e((string) $currentAdmin['username']) ?></strong> (<?= e($adminRole === 'admin' ? 'Admin' : 'Orga') ?>)</p>
@@ -712,8 +682,15 @@ $paypalLinks = $service->paypalLinkOptions($settings);
 <?php if ($error): ?><p class="notice error"><?= e($error) ?></p><?php endif; ?>
 
 <?php if (!$isAdmin): ?>
-<section class="card"><h2>Login</h2>
-<form method="post"><input type="hidden" name="action" value="login"><label>Benutzername<input name="username" required></label><label>Passwort<input type="password" name="password" required></label><button>Anmelden</button></form></section>
+<section class="card">
+    <h2>Login</h2>
+    <form method="post">
+        <input type="hidden" name="action" value="login">
+        <label>Benutzername<input name="username" required></label>
+        <label>Passwort<input type="password" name="password" required></label>
+        <button>Anmelden</button>
+    </form>
+</section>
 <?php else: ?>
 <section class="card">
     <h2>Bereiche</h2>
@@ -1061,4 +1038,6 @@ if ($todayDayDisabled):
 <?php endif; ?>
 <?php endif; ?>
 
-</main></body></html>
+</main>
+</body>
+</html>

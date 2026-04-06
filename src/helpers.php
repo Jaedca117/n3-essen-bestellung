@@ -95,3 +95,45 @@ function supplier_available_on_weekday(array $supplier, string $weekdayKey): boo
     }
     return in_array($weekdayKey, $weekdays, true);
 }
+
+/**
+ * @param array{
+ *   nickname:string,
+ *   dish_no:string,
+ *   dish_name:string,
+ *   dish_size:string,
+ *   price:float,
+ *   payment_method:string,
+ *   note:string
+ * } $payload
+ * @return list<string>
+ */
+function validate_order_payload(array $payload, bool $paypalEnabled): array
+{
+    $errors = [];
+    if (mb_strlen($payload['nickname']) < 2 || mb_strlen($payload['nickname']) > 40) {
+        $errors[] = 'Name muss 2-40 Zeichen haben.';
+    }
+    if (mb_strlen($payload['dish_no']) > 20) {
+        $errors[] = 'Essensnummer ist zu lang.';
+    }
+    if (mb_strlen($payload['dish_name']) < 2 || mb_strlen($payload['dish_name']) > 120) {
+        $errors[] = 'Gericht muss 2-120 Zeichen haben.';
+    }
+    if (mb_strlen($payload['dish_size']) > 40) {
+        $errors[] = 'Größe darf höchstens 40 Zeichen haben.';
+    }
+    if ($payload['price'] <= 0 || $payload['price'] > 999) {
+        $errors[] = 'Preis muss zwischen 0,01 und 999 liegen.';
+    }
+    if (!in_array($payload['payment_method'], ['bar', 'paypal'], true)) {
+        $errors[] = 'Ungültige Zahlungsart.';
+    }
+    if (!$paypalEnabled && $payload['payment_method'] === 'paypal') {
+        $errors[] = 'PayPal ist heute nicht verfügbar.';
+    }
+    if (mb_strlen($payload['note']) > 200) {
+        $errors[] = 'Bemerkung darf höchstens 200 Zeichen haben.';
+    }
+    return $errors;
+}
