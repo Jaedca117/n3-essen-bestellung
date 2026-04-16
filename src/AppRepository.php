@@ -640,7 +640,6 @@ final class AppRepository
         $this->pdo->beginTransaction();
         try {
             $this->deleteAllRowsIfTableExists('votes');
-            $this->deleteAllRowsIfTableExists('supplier_ratings');
             $this->deleteAllRowsIfTableExists('orders');
             $this->saveSetting('manual_winner_supplier_id', '');
             if ($resetNote) {
