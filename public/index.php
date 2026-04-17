@@ -187,6 +187,7 @@ if (preg_match('/^\d{2}:\d{2}/', $dailyResetTime) === 1) {
 }
 $suppliers = $repo->suppliers();
 $voteResults = $repo->voteResults();
+$supplierRatingStats = $repo->supplierRatingStatsBySupplierId();
 $orders = $repo->ordersByOwnerToken((string) $_COOKIE['vote_token']);
 $totals = $repo->orderTotalsByOwnerToken((string) $_COOKIE['vote_token']);
 $activePaypalLink = $service->activePaypalLinkForWeekday($settings, current_weekday_key());
@@ -200,6 +201,14 @@ $groupedSuppliers = [];
 foreach ($suppliers as $supplier) {
     $groupedSuppliers[$supplier['category_name'] ?? 'Sonstiges'][] = $supplier;
 }
+
+$formatSupplierAverageRating = static function (int $supplierId) use ($supplierRatingStats): string {
+    $avg = (float) ($supplierRatingStats[$supplierId]['avg'] ?? 0.0);
+    if ($avg <= 0) {
+        return '-';
+    }
+    return number_format($avg, 1, ',', '.');
+};
 $dayDisabledNotice = trim((string) ($settings['day_disabled_notice'] ?? ''));
 if ($dayDisabledNotice === '') {
     $dayDisabledNotice = 'Bestellungen sind heute deaktiviert.';
@@ -251,6 +260,7 @@ if ($dayDisabledNotice === '') {
                                 <input type="hidden" name="supplier_id" value="<?= (int) $supplier['id'] ?>">
                                 <strong><?= e((string) $supplier['name']) ?></strong>
                                 <a href="<?= e((string) $supplier['menu_url']) ?>" target="_blank" rel="noopener">Speisekarte</a>
+                                <span class="muted">Ø Bewertung: <?= e($formatSupplierAverageRating((int) $supplier['id'])) ?></span>
                                 <button type="submit">Dafür stimmen</button>
                             </form>
                         <?php endforeach; ?>
@@ -271,13 +281,14 @@ if ($dayDisabledNotice === '') {
         <section class="card">
             <h2>Zwischenstand</h2>
             <table>
-                <thead><tr><th>Lieferant</th><th>Kategorie</th><th>Speisekarte</th><th>Stimmen</th></tr></thead>
+                <thead><tr><th>Lieferant</th><th>Kategorie</th><th>Speisekarte</th><th>Ø Bewertung</th><th>Stimmen</th></tr></thead>
                 <tbody>
                 <?php foreach ($voteResults as $row): ?>
                     <tr<?= ($winner && (int) $winner['id'] === (int) $row['id']) ? ' class="leading"' : '' ?>>
                         <td><?= e((string) $row['name']) ?></td>
                         <td><?= e((string) ($row['category_name'] ?? '-')) ?></td>
                         <td><a href="<?= e((string) $row['menu_url']) ?>" target="_blank" rel="noopener">Link</a></td>
+                        <td><?= e($formatSupplierAverageRating((int) $row['id'])) ?></td>
                         <td><?= (int) $row['votes'] ?></td>
                     </tr>
                 <?php endforeach; ?>
