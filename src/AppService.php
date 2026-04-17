@@ -55,6 +55,10 @@ final class AppService
         $needsReset = $now >= $todayResetMoment && $lastResetDay !== $now->format('Y-m-d');
 
         if ($needsReset) {
+            $winner = $this->winner($settings);
+            $lastSupplierId = $winner ? (string) ((int) ($winner['id'] ?? 0)) : '';
+            $sourceWeekday = $this->sourceWeekdayForReset($lastResetAt, $now);
+            $this->repo->saveSetting('last_supplier_id_' . $sourceWeekday, $lastSupplierId);
             $this->repo->resetDaily((($settings['reset_daily_note'] ?? '1') === '1'));
         }
     }
@@ -153,5 +157,18 @@ final class AppService
         }
 
         return $result;
+    }
+
+    private function sourceWeekdayForReset(string $lastResetAt, DateTimeImmutable $now): string
+    {
+        if ($lastResetAt !== '' && $lastResetAt !== '1970-01-01 00:00:00') {
+            try {
+                return strtolower((new DateTimeImmutable($lastResetAt))->format('l'));
+            } catch (Throwable) {
+                // Fallback below.
+            }
+        }
+
+        return strtolower($now->modify('-1 day')->format('l'));
     }
 }

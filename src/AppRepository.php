@@ -270,7 +270,7 @@ final class AppRepository
             return true;
         }
 
-        return preg_match('/^(voting_end_time|order_end_time|day_disabled|paypal_link_active_id)_(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/', $key) === 1;
+        return preg_match('/^(voting_end_time|order_end_time|day_disabled|paypal_link_active_id|exclude_last_week_supplier|last_supplier_id)_(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/', $key) === 1;
     }
 
     private function normalizeSettingValue(string $key, string $value): string
@@ -285,6 +285,12 @@ final class AppRepository
 
         if (preg_match('/^day_disabled_(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/', $key) === 1 || $key === 'reset_daily_note') {
             return $value === '1' ? '1' : '0';
+        }
+        if (preg_match('/^exclude_last_week_supplier_(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/', $key) === 1) {
+            return $value === '1' ? '1' : '0';
+        }
+        if (preg_match('/^last_supplier_id_(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/', $key) === 1) {
+            return ctype_digit($value) ? $value : '';
         }
 
         if ($key === 'paypal_links') {

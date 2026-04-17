@@ -43,6 +43,9 @@ if (isset($_GET['edit_id'])) {
 $voteCount = $repo->voteCountForToken((string) $_COOKIE['vote_token']);
 $hasVoted = $voteCount >= 2;
 $settings = $state['settings'];
+$weekdayKey = current_weekday_key();
+$excludeLastWeekSupplier = (($settings['exclude_last_week_supplier_' . $weekdayKey] ?? '0') === '1');
+$excludedSupplierId = $excludeLastWeekSupplier ? (int) ($settings['last_supplier_id_' . $weekdayKey] ?? 0) : 0;
 $winner = $service->winner($settings);
 $hasPlacedOrder = $repo->hasOrdersByOwnerToken((string) $_COOKIE['vote_token']);
 $hasRatedWinner = $winner ? $repo->hasRatingForTokenAndSupplier((string) $_COOKIE['vote_token'], (int) $winner['id']) : false;
@@ -60,7 +63,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Zu viele Abstimmungen in kurzer Zeit. Bitte kurz warten.';
         } else {
             $supplierId = (int) ($_POST['supplier_id'] ?? 0);
-            $ids = array_map(static fn($r) => (int) $r['id'], $repo->suppliers());
+            $availableSuppliers = array_values(array_filter(
+                $repo->suppliers(),
+                static fn(array $supplier): bool => (int) ($supplier['id'] ?? 0) !== $excludedSupplierId
+            ));
+            $ids = array_map(static fn($r) => (int) $r['id'], $availableSuppliers);
             if (!in_array($supplierId, $ids, true)) {
                 $error = 'Ungültiger Lieferant.';
             } elseif ($repo->hasVoteForTokenAndSupplier((string) $_COOKIE['vote_token'], $supplierId)) {
@@ -186,7 +193,15 @@ if (preg_match('/^\d{2}:\d{2}/', $dailyResetTime) === 1) {
     $dailyResetTime = '10:30';
 }
 $suppliers = $repo->suppliers();
+$suppliers = array_values(array_filter(
+    $suppliers,
+    static fn(array $supplier): bool => (int) ($supplier['id'] ?? 0) !== $excludedSupplierId
+));
 $voteResults = $repo->voteResults();
+$voteResults = array_values(array_filter(
+    $voteResults,
+    static fn(array $supplier): bool => (int) ($supplier['id'] ?? 0) !== $excludedSupplierId
+));
 $supplierRatingStats = $repo->supplierRatingStatsBySupplierId();
 $orders = $repo->ordersByOwnerToken((string) $_COOKIE['vote_token']);
 $totals = $repo->orderTotalsByOwnerToken((string) $_COOKIE['vote_token']);

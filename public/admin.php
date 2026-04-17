@@ -300,6 +300,10 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
                 'day_disabled_' . $weekdayKey,
                 isset($_POST['day_disabled_' . $weekdayKey]) ? '1' : '0'
             );
+            $repo->saveSetting(
+                'exclude_last_week_supplier_' . $weekdayKey,
+                isset($_POST['exclude_last_week_supplier_' . $weekdayKey]) ? '1' : '0'
+            );
         }
         $existingPaypalIds = [];
         foreach ($service->paypalLinkOptions($repo->getSettings()) as $entry) {
@@ -869,6 +873,10 @@ if ($todayDayDisabled):
             <label class="check">
                 <input type="checkbox" name="day_disabled_<?= e($weekdayKey) ?>" value="1" <?= (($settings['day_disabled_' . $weekdayKey] ?? '0') === '1') ? 'checked' : '' ?> <?= $canEditDay ? '' : 'disabled' ?>>
                 Bestellung für <?= e($weekdayLabel) ?> deaktivieren
+            </label>
+            <label class="check">
+                <input type="checkbox" name="exclude_last_week_supplier_<?= e($weekdayKey) ?>" value="1" <?= (($settings['exclude_last_week_supplier_' . $weekdayKey] ?? '0') === '1') ? 'checked' : '' ?> <?= $canEditDay ? '' : 'disabled' ?>>
+                Lieferant der Vorwoche (<?= e($weekdayLabel) ?>) ausblenden
             </label>
             <label>PayPal-Account
                 <select name="paypal_link_active_id_<?= e($weekdayKey) ?>" <?= $canEditDay ? '' : 'disabled' ?>>
