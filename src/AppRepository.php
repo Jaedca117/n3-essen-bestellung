@@ -641,11 +641,31 @@ final class AppRepository
         return ['request_count' => $count];
     }
 
-    public function resetDaily(bool $resetNote): void
+    public function hasStaleDailyDataBefore(string $dateTime): bool
+    {
+        $sources = ['votes', 'orders'];
+        foreach ($sources as $table) {
+            if (!$this->tableExists($table)) {
+                continue;
+            }
+            $stmt = $this->pdo->prepare(
+                'SELECT 1 FROM ' . $this->t($table) . ' WHERE created_at < :cutoff LIMIT 1'
+            );
+            $stmt->execute([':cutoff' => $dateTime]);
+            if ($stmt->fetchColumn() !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function resetDaily(bool $resetNote, bool $includeVotes = true): void
     {
         $this->pdo->beginTransaction();
         try {
-            $this->deleteAllRowsIfTableExists('votes');
+            if ($includeVotes) {
+                $this->deleteAllRowsIfTableExists('votes');
+            }
             $this->deleteAllRowsIfTableExists('orders');
             $this->saveSetting('manual_winner_supplier_id', '');
             if ($resetNote) {
