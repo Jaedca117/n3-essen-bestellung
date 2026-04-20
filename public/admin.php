@@ -412,7 +412,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '
         $error = 'Nur Admins dürfen diesen Bereich bearbeiten.';
     } else {
         $settings = $repo->getSettings();
-        $repo->resetDaily((($settings['reset_daily_note'] ?? '1') === '1'));
+        $repo->resetDaily((($settings['reset_daily_note'] ?? '1') === '1'), false);
         $message = 'Tagesdaten wurden erfolgreich zurückgesetzt.';
         record_audit_log($repo, $currentAdmin, 'manual_reset_daily_data', 'settings', 'general');
         set_admin_flash('success', $message);

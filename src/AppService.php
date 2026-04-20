@@ -49,10 +49,21 @@ final class AppService
         $lastResetAt = trim((string) ($settings['last_reset_at'] ?? ''));
 
         $now = new DateTimeImmutable('now');
+        $today = $now->format('Y-m-d');
+        $todayStart = $today . ' 00:00:00';
+        if ($this->repo->hasStaleDailyDataBefore($todayStart)) {
+            $winner = $this->winner($settings);
+            $lastSupplierId = $winner ? (string) ((int) ($winner['id'] ?? 0)) : '';
+            $sourceWeekday = $this->sourceWeekdayForReset($lastResetAt, $now);
+            $this->repo->saveSetting('last_supplier_id_' . $sourceWeekday, $lastSupplierId);
+            $this->repo->resetDaily((($settings['reset_daily_note'] ?? '1') === '1'));
+            return;
+        }
+
         $todayResetMoment = new DateTimeImmutable($now->format('Y-m-d') . ' ' . $resetTime);
 
         $lastResetDay = $lastResetAt !== '' ? (new DateTimeImmutable($lastResetAt))->format('Y-m-d') : '1970-01-01';
-        $needsReset = $now >= $todayResetMoment && $lastResetDay !== $now->format('Y-m-d');
+        $needsReset = $now >= $todayResetMoment && $lastResetDay !== $today;
 
         if ($needsReset) {
             $winner = $this->winner($settings);
